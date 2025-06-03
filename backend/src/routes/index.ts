@@ -3,12 +3,16 @@ import { UserController } from '../controllers/user.controller'
 import { VehicleController } from '../controllers/vehicle.controller'
 import { MaintenanceController } from '../controllers/maintenance.controller'
 import { AuthController } from '../controllers/auth.controller'
+import { ReminderController } from '../controllers/reminder.controller'
+import { ExpenseController } from '../controllers/expense.controller'
 import { authMiddleware } from '../middlewares/auth'
 
 const userController = new UserController()
 const vehicleController = new VehicleController()
 const maintenanceController = new MaintenanceController()
 const authController = new AuthController()
+const reminderController = new ReminderController()
+const expenseController = new ExpenseController()
 
 export async function routes(app: FastifyInstance) {
   // Public routes
@@ -19,7 +23,7 @@ export async function routes(app: FastifyInstance) {
   // Auth routes
   app.post('/auth/register', authController.register.bind(authController))
   app.post('/auth/login', authController.login.bind(authController))
-  
+
   // Protected routes
   app.addHook('preHandler', async (request, reply) => {
     // Skip auth for public routes
@@ -28,7 +32,7 @@ export async function routes(app: FastifyInstance) {
     }
     return authMiddleware(request, reply)
   })
-  
+
   // User routes
   app.get('/users', userController.findAll.bind(userController))
   app.get('/users/:id', userController.findById.bind(userController))
@@ -50,4 +54,18 @@ export async function routes(app: FastifyInstance) {
   app.delete('/maintenances/:id', maintenanceController.delete.bind(maintenanceController))
   app.get('/vehicles/:vehicleId/maintenances', maintenanceController.findByVehicle.bind(maintenanceController))
   app.get('/mechanics/:mechanicId/maintenances', maintenanceController.findByMechanic.bind(maintenanceController))
+
+  // Reminder routes
+  app.post('/reminders', reminderController.create.bind(reminderController))
+  app.get('/reminders', reminderController.findAll.bind(reminderController))
+  app.get('/reminders/:id', reminderController.findById.bind(reminderController))
+  app.put('/reminders/:id', reminderController.update.bind(reminderController))
+  app.delete('/reminders/:id', reminderController.delete.bind(reminderController))
+
+  // Expense routes
+  app.post('/expenses', expenseController.create.bind(expenseController))
+  app.get('/expenses', expenseController.findAll.bind(expenseController))
+  app.get('/expenses/:id', expenseController.findById.bind(expenseController))
+  app.put('/expenses/:id', expenseController.update.bind(expenseController))
+  app.delete('/expenses/:id', expenseController.delete.bind(expenseController))
 } 
