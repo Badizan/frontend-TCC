@@ -1,99 +1,66 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  PointElement,
-  LineElement,
-} from 'chart.js';
-import { Bar } from 'react-chartjs-2';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  PointElement,
-  LineElement
-);
-
-interface ExpenseData {
-  month: string;
-  amount: number;
-}
+import React from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Expense } from '../../services/expense.service';
 
 interface ExpenseChartProps {
-  data: ExpenseData[];
+  expenses: Expense[];
 }
 
-const ExpenseChart: React.FC<ExpenseChartProps> = ({ data }) => {
-  const [chartData, setChartData] = useState({
-    labels: [],
-    datasets: [],
-  });
-
-  useEffect(() => {
-    setChartData({
-      labels: data.map((item) => item.month),
-      datasets: [
-        {
-          label: 'Gastos (R$)',
-          data: data.map((item) => item.amount),
-          backgroundColor: 'rgba(59, 130, 246, 0.7)',
-          borderColor: 'rgba(59, 130, 246, 1)',
-          borderWidth: 1,
-          borderRadius: 4,
-        },
-      ],
-    });
-  }, [data]);
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          label: function (context: any) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
-            if (context.parsed.y !== null) {
-              label += new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              }).format(context.parsed.y);
-            }
-            return label;
-          },
-        },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: function (value: any) {
-            return 'R$ ' + value;
-          },
-        },
-      },
-    },
+const ExpenseChart: React.FC<ExpenseChartProps> = ({ expenses }) => {
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'fuel':
+        return 'Combustível';
+      case 'maintenance':
+        return 'Manutenção';
+      case 'insurance':
+        return 'Seguro';
+      case 'tax':
+        return 'Imposto';
+      default:
+        return type;
+    }
   };
 
+  const data = expenses.reduce((acc: any[], expense) => {
+    const month = format(new Date(expense.date), 'MMM yyyy', { locale: ptBR });
+    const type = getTypeLabel(expense.type);
+    
+    const existingMonth = acc.find(item => item.month === month);
+    if (existingMonth) {
+      existingMonth[type] = (existingMonth[type] || 0) + expense.amount;
+    } else {
+      acc.push({
+        month,
+        [type]: expense.amount
+      });
+    }
+    
+    return acc;
+  }, []);
+
   return (
-    <div className="h-64">
-      <Bar data={chartData} options={options} />
+    <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-blue-100">
+      <h2 className="text-xl font-bold text-gray-900 mb-6">Despesas por Tipo</h2>
+      <div className="h-[400px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip
+              formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Valor']}
+              labelFormatter={(label) => `Mês: ${label}`}
+            />
+            <Bar dataKey="Combustível" fill="#3B82F6" />
+            <Bar dataKey="Manutenção" fill="#F59E0B" />
+            <Bar dataKey="Seguro" fill="#10B981" />
+            <Bar dataKey="Imposto" fill="#EF4444" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };

@@ -1,278 +1,329 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Bell, Calendar, Car, AlertTriangle } from 'lucide-react';
-import Input from '../components/Input';
-import Select from '../components/Select';
-import Textarea from '../components/Textarea';
-import Button from '../components/Button';
-import Loading from '../components/Loading';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Typography,
+    TextField,
+    MenuItem,
+    Grid,
+    Alert,
+    Snackbar,
+    CircularProgress,
+} from '@mui/material';
+import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { ptBR } from 'date-fns/locale';
+import { api } from '../services/api';
+import { logService } from '../services/log.service';
 
-const mockVehicles = [
-  { id: '1', brand: 'Toyota', model: 'Corolla', licensePlate: 'ABC1234', image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200' },
-  { id: '2', brand: 'Honda', model: 'Civic', licensePlate: 'DEF5678', image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200' },
-  { id: '3', brand: 'Volkswagen', model: 'Golf', licensePlate: 'GHI9012', image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200' },
+interface Vehicle {
+    id: string;
+    brand: string;
+    model: string;
+    licensePlate: string;
+}
+
+interface Reminder {
+    id: string;
+    vehicleId: string;
+    type: string;
+    description: string;
+    dueDate: string;
+    status: string;
+    priority: string;
+    notes?: string;
+}
+
+const reminderTypes = [
+    { value: 'MAINTENANCE', label: 'Manutenção' },
+    { value: 'INSURANCE', label: 'Seguro' },
+    { value: 'LICENSE', label: 'Licenciamento' },
+    { value: 'OTHER', label: 'Outros' },
 ];
 
-const mockReminders = [
-  {
-    id: '1',
-    vehicleId: '1',
-    type: 'maintenance',
-    description: 'Troca de óleo',
-    dueDate: '2024-04-15',
-    status: 'pending',
-    priority: 'high',
-    notes: 'Trocar filtro de óleo também'
-  },
-  {
-    id: '2',
-    vehicleId: '2',
-    type: 'document',
-    description: 'Renovação do seguro',
-    dueDate: '2024-05-01',
-    status: 'pending',
-    priority: 'medium',
-    notes: 'Verificar cobertura atual'
-  },
-  {
-    id: '3',
-    vehicleId: '3',
-    type: 'inspection',
-    description: 'Vistoria anual',
-    dueDate: '2024-06-30',
-    status: 'completed',
-    priority: 'low',
-    notes: 'Agendar com antecedência'
-  }
+const statusOptions = [
+    { value: 'PENDING', label: 'Pendente' },
+    { value: 'COMPLETED', label: 'Concluído' },
+    { value: 'CANCELLED', label: 'Cancelado' },
+];
+
+const priorityOptions = [
+    { value: 'HIGH', label: 'Alta' },
+    { value: 'MEDIUM', label: 'Média' },
+    { value: 'LOW', label: 'Baixa' },
 ];
 
 const ReminderForm: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [vehicles] = useState(mockVehicles);
-  const [formData, setFormData] = useState({
-    vehicleId: '',
-    type: 'maintenance',
-    description: '',
-    dueDate: new Date().toISOString().split('T')[0],
-    status: 'pending',
-    priority: 'medium',
-    notes: '',
-  });
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+    const [formData, setFormData] = useState<Partial<Reminder>>({
+        vehicleId: '',
+        type: '',
+        description: '',
+        dueDate: new Date().toISOString(),
+        status: 'PENDING',
+        priority: 'MEDIUM',
+        notes: '',
+    });
 
-  useEffect(() => {
-    if (id) {
-      const reminder = mockReminders.find(r => r.id === id);
-      if (reminder) {
-        setFormData({
-          vehicleId: reminder.vehicleId,
-          type: reminder.type,
-          description: reminder.description,
-          dueDate: reminder.dueDate.split('T')[0],
-          status: reminder.status,
-          priority: reminder.priority,
-          notes: reminder.notes || '',
-        });
-      }
+    useEffect(() => {
+        loadVehicles();
+        if (id) {
+            loadReminder();
+        }
+    }, [id]);
+
+    const loadVehicles = async () => {
+        try {
+            const response = await api.get<Vehicle[]>('/vehicles');
+            setVehicles(response.data);
+        } catch (error) {
+            setError('Erro ao carregar veículos');
+            logService.error('Erro ao carregar veículos', { error });
+        }
+    };
+
+    const loadReminder = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get<Reminder>(`/reminders/${id}`);
+            setFormData(response.data);
+        } catch (error) {
+            setError('Erro ao carregar lembrete');
+            logService.error('Erro ao carregar lembrete', { id, error });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            setLoading(true);
+            if (id) {
+                await api.put(`/reminders/${id}`, formData);
+                logService.info('Lembrete atualizado com sucesso', { id });
+            } else {
+                await api.post('/reminders', formData);
+                logService.info('Lembrete criado com sucesso');
+            }
+            setSuccess(true);
+            setTimeout(() => navigate('/reminders'), 2000);
+        } catch (error) {
+            setError('Erro ao salvar lembrete');
+            logService.error('Erro ao salvar lembrete', { error });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleDateChange = (date: Date | null) => {
+        if (date) {
+            setFormData((prev) => ({ ...prev, dueDate: date.toISOString() }));
+        }
+    };
+
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress />
+            </Box>
+        );
     }
-  }, [id]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/reminders');
-    }, 1000);
-  };
+    return (
+        <Box sx={{ p: 3 }}>
+            <Card>
+                <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                        <Button
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => navigate('/reminders')}
+                            sx={{ mr: 2 }}
+                        >
+                            Voltar
+                        </Button>
+                        <Typography variant="h5" component="h2">
+                            {id ? 'Editar Lembrete' : 'Novo Lembrete'}
+                        </Typography>
+                    </Box>
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+                    <form onSubmit={handleSubmit}>
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Veículo"
+                                    name="vehicleId"
+                                    value={formData.vehicleId}
+                                    onChange={handleChange}
+                                    required
+                                >
+                                    {vehicles.map((vehicle) => (
+                                        <MenuItem key={vehicle.id} value={vehicle.id}>
+                                            {vehicle.brand} {vehicle.model} - {vehicle.licensePlate}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-  if (loading) {
-    return <Loading fullScreen text="Salvando..." />;
-  }
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Tipo"
+                                    name="type"
+                                    value={formData.type}
+                                    onChange={handleChange}
+                                    required
+                                >
+                                    {reminderTypes.map((type) => (
+                                        <MenuItem key={type.value} value={type.value}>
+                                            {type.label}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-  return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="md" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {id ? 'Editar Lembrete' : 'Novo Lembrete'}
-            </h1>
-            <p className="text-gray-500">Preencha os dados do lembrete</p>
-          </div>
-        </div>
-      </div>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Descrição"
+                                    name="description"
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    required
+                                    multiline
+                                    rows={2}
+                                />
+                            </Grid>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-blue-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Informações Gerais</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Select
-                  label="Veículo"
-                  name="vehicleId"
-                  value={formData.vehicleId}
-                  onChange={handleChange}
-                  options={vehicles.map(vehicle => ({
-                    value: vehicle.id,
-                    label: `${vehicle.brand} ${vehicle.model} - ${vehicle.licensePlate}`
-                  }))}
-                  required
-                />
-                <Select
-                  label="Tipo"
-                  name="type"
-                  value={formData.type}
-                  onChange={handleChange}
-                  options={[
-                    { value: 'maintenance', label: 'Manutenção' },
-                    { value: 'document', label: 'Documento' },
-                    { value: 'inspection', label: 'Vistoria' }
-                  ]}
-                  required
-                />
-                <Input
-                  label="Data de Vencimento"
-                  type="date"
-                  name="dueDate"
-                  value={formData.dueDate}
-                  onChange={handleChange}
-                  required
-                />
-                <Select
-                  label="Status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  options={[
-                    { value: 'pending', label: 'Pendente' },
-                    { value: 'completed', label: 'Concluído' },
-                    { value: 'overdue', label: 'Atrasado' }
-                  ]}
-                  required
-                />
-                <Select
-                  label="Prioridade"
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleChange}
-                  options={[
-                    { value: 'high', label: 'Alta' },
-                    { value: 'medium', label: 'Média' },
-                    { value: 'low', label: 'Baixa' }
-                  ]}
-                  required
-                />
-              </div>
-            </div>
+                            <Grid item xs={12} md={6}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                                    <DatePicker
+                                        label="Data de Vencimento"
+                                        value={formData.dueDate ? new Date(formData.dueDate) : null}
+                                        onChange={handleDateChange}
+                                        slotProps={{
+                                            textField: {
+                                                fullWidth: true,
+                                                required: true,
+                                            },
+                                        }}
+                                    />
+                                </LocalizationProvider>
+                            </Grid>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-blue-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Descrição e Observações</h2>
-              <div className="space-y-4">
-                <Input
-                  label="Descrição"
-                  type="text"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Descrição do lembrete"
-                  required
-                />
-                <Textarea
-                  label="Observações"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  placeholder="Observações adicionais"
-                  rows={3}
-                />
-              </div>
-            </div>
-          </div>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Status"
+                                    name="status"
+                                    value={formData.status}
+                                    onChange={handleChange}
+                                    required
+                                >
+                                    {statusOptions.map((status) => (
+                                        <MenuItem key={status.value} value={status.value}>
+                                            {status.label}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-blue-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Resumo</h2>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100">
-                    {formData.vehicleId && (
-                      <img
-                        src={vehicles.find(v => v.id === formData.vehicleId)?.image}
-                        alt="Vehicle"
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">
-                      {formData.vehicleId
-                        ? `${vehicles.find(v => v.id === formData.vehicleId)?.brand} ${vehicles.find(v => v.id === formData.vehicleId)?.model}`
-                        : 'Selecione um veículo'}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {formData.vehicleId
-                        ? vehicles.find(v => v.id === formData.vehicleId)?.licensePlate
-                        : 'Nenhum veículo selecionado'}
-                    </p>
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Tipo</span>
-                    <span className="font-medium">
-                      {formData.type === 'maintenance' ? 'Manutenção' : formData.type === 'document' ? 'Documento' : 'Vistoria'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-600">Status</span>
-                    <span className="font-medium">
-                      {formData.status === 'pending' ? 'Pendente' : formData.status === 'completed' ? 'Concluído' : 'Atrasado'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-600">Prioridade</span>
-                    <span className="font-medium">
-                      {formData.priority === 'high' ? 'Alta' : formData.priority === 'medium' ? 'Média' : 'Baixa'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-600">Vencimento</span>
-                    <span className="font-medium">
-                      {new Date(formData.dueDate).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              fullWidth
-              isLoading={loading}
-              leftIcon={<Save className="w-5 h-5 mr-2 inline" />}
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Prioridade"
+                                    name="priority"
+                                    value={formData.priority}
+                                    onChange={handleChange}
+                                    required
+                                >
+                                    {priorityOptions.map((priority) => (
+                                        <MenuItem key={priority.value} value={priority.value}>
+                                            {priority.label}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Observações"
+                                    name="notes"
+                                    value={formData.notes}
+                                    onChange={handleChange}
+                                    multiline
+                                    rows={3}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => navigate('/reminders')}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        variant="contained"
+                                        color="primary"
+                                        startIcon={<SaveIcon />}
+                                        disabled={loading}
+                                    >
+                                        Salvar
+                                    </Button>
+                                </Box>
+                            </Grid>
+                        </Grid>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <Snackbar
+                open={!!error}
+                autoHideDuration={6000}
+                onClose={() => setError(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             >
-              {id ? 'Salvar Alterações' : 'Criar Lembrete'}
-            </Button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
+                <Alert severity="error" onClose={() => setError(null)}>
+                    {error}
+                </Alert>
+            </Snackbar>
+
+            <Snackbar
+                open={success}
+                autoHideDuration={2000}
+                onClose={() => setSuccess(false)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert severity="success" onClose={() => setSuccess(false)}>
+                    Lembrete salvo com sucesso!
+                </Alert>
+            </Snackbar>
+        </Box>
+    );
 };
 
 export default ReminderForm; 

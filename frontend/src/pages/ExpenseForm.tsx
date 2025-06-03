@@ -1,274 +1,319 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, DollarSign, Car, Calendar, Tag, AlertTriangle } from 'lucide-react';
-import Input from '../components/Input';
-import Select from '../components/Select';
-import Textarea from '../components/Textarea';
-import Button from '../components/Button';
-import Loading from '../components/Loading';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Grid,
+    TextField,
+    Typography,
+    MenuItem,
+    FormControl,
+    InputLabel,
+    Select,
+    Alert,
+    Snackbar,
+} from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { ptBR } from 'date-fns/locale';
+import { api } from '../services/api';
+import { logService } from '../services/log.service';
 
-const mockVehicles = [
-  { id: '1', brand: 'Toyota', model: 'Corolla', licensePlate: 'ABC1234', image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200' },
-  { id: '2', brand: 'Honda', model: 'Civic', licensePlate: 'DEF5678', image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200' },
-  { id: '3', brand: 'Volkswagen', model: 'Golf', licensePlate: 'GHI9012', image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200' },
+interface Vehicle {
+    id: string;
+    brand: string;
+    model: string;
+    licensePlate: string;
+}
+
+interface Expense {
+    id?: string;
+    vehicleId: string;
+    type: string;
+    description: string;
+    amount: number;
+    date: Date | null;
+    status: string;
+    paymentMethod: string;
+    notes?: string;
+}
+
+const expenseTypes = [
+    { value: 'FUEL', label: 'Combustível' },
+    { value: 'MAINTENANCE', label: 'Manutenção' },
+    { value: 'INSURANCE', label: 'Seguro' },
+    { value: 'OTHER', label: 'Outros' },
 ];
 
-const mockExpenses = [
-  {
-    id: '1',
-    vehicleId: '1',
-    type: 'fuel',
-    description: 'Abastecimento',
-    date: '2024-03-15',
-    amount: 150.0,
-    mileage: 45000,
-    notes: 'Combustível comum'
-  },
-  {
-    id: '2',
-    vehicleId: '2',
-    type: 'maintenance',
-    description: 'Troca de óleo',
-    date: '2024-03-10',
-    amount: 280.0,
-    mileage: 30000,
-    notes: 'Inclui filtro de óleo'
-  },
-  {
-    id: '3',
-    vehicleId: '3',
-    type: 'insurance',
-    description: 'Seguro anual',
-    date: '2024-03-01',
-    amount: 2500.0,
-    mileage: 25000,
-    notes: 'Cobertura completa'
-  }
-];
+const statuses = ['PENDING', 'PAID', 'CANCELLED'];
+const paymentMethods = ['Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'PIX', 'Transferência'];
 
 const ExpenseForm: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [vehicles] = useState(mockVehicles);
-  const [formData, setFormData] = useState({
-    vehicleId: '',
-    type: 'fuel',
-    description: '',
-    date: new Date().toISOString().split('T')[0],
-    amount: 0,
-    mileage: 0,
-    notes: '',
-  });
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+    const [expense, setExpense] = useState<Expense>({
+        vehicleId: '',
+        type: expenseTypes[0].value,
+        description: '',
+        amount: 0,
+        date: new Date(),
+        status: statuses[0],
+        paymentMethod: paymentMethods[0],
+        notes: '',
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      const expense = mockExpenses.find(e => e.id === id);
-      if (expense) {
-        setFormData({
-          vehicleId: expense.vehicleId,
-          type: expense.type,
-          description: expense.description,
-          date: expense.date.split('T')[0],
-          amount: expense.amount,
-          mileage: expense.mileage,
-          notes: expense.notes || '',
-        });
-      }
-    }
-  }, [id]);
+    useEffect(() => {
+        loadVehicles();
+        if (id) {
+            loadExpense();
+        }
+    }, [id]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/expenses');
-    }, 1000);
-  };
+    const loadVehicles = async () => {
+        try {
+            const response = await api.get<Vehicle[]>('/vehicles');
+            setVehicles(response.data);
+        } catch (error) {
+            setError('Erro ao carregar veículos');
+            logService.error('Erro ao carregar veículos', { error });
+        }
+    };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'amount' || name === 'mileage' ? Number(value) : value
-    }));
-  };
+    const loadExpense = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get<Expense>(`/expenses/${id}`);
+            const expenseData = response.data;
+            setExpense({
+                ...expenseData,
+                date: expenseData.date ? new Date(expenseData.date) : null,
+            });
+        } catch (error) {
+            setError('Erro ao carregar dados da despesa');
+            logService.error('Erro ao carregar despesa', { id, error });
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  if (loading) {
-    return <Loading fullScreen text="Salvando..." />;
-  }
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+        const { name, value } = event.target;
+        setExpense((prev) => ({
+            ...prev,
+            [name as string]: value,
+        }));
+    };
 
-  return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="md" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {id ? 'Editar Despesa' : 'Nova Despesa'}
-            </h1>
-            <p className="text-gray-500">Preencha os dados da despesa</p>
-          </div>
-        </div>
-      </div>
+    const handleDateChange = (value: Date | null) => {
+        setExpense((prev) => ({
+            ...prev,
+            date: value,
+        }));
+    };
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-blue-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Informações Gerais</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Select
-                  label="Veículo"
-                  name="vehicleId"
-                  value={formData.vehicleId}
-                  onChange={handleChange}
-                  options={vehicles.map(vehicle => ({
-                    value: vehicle.id,
-                    label: `${vehicle.brand} ${vehicle.model} - ${vehicle.licensePlate}`
-                  }))}
-                  required
-                />
-                <Select
-                  label="Tipo"
-                  name="type"
-                  value={formData.type}
-                  onChange={handleChange}
-                  options={[
-                    { value: 'fuel', label: 'Combustível' },
-                    { value: 'maintenance', label: 'Manutenção' },
-                    { value: 'insurance', label: 'Seguro' },
-                    { value: 'tax', label: 'Imposto' }
-                  ]}
-                  required
-                />
-                <Input
-                  label="Data"
-                  type="date"
-                  name="date"
-                  value={formData.date}
-                  onChange={handleChange}
-                  required
-                />
-                <Input
-                  label="Quilometragem"
-                  type="number"
-                  name="mileage"
-                  value={formData.mileage}
-                  onChange={handleChange}
-                  required
-                  min={0}
-                />
-                <Input
-                  label="Valor (R$)"
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleChange}
-                  required
-                  min={0}
-                  step={0.01}
-                />
-              </div>
-            </div>
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        try {
+            setLoading(true);
+            setError(null);
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-blue-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Descrição e Observações</h2>
-              <div className="space-y-4">
-                <Input
-                  label="Descrição"
-                  type="text"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Descrição da despesa"
-                  required
-                />
-                <Textarea
-                  label="Observações"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  placeholder="Observações adicionais"
-                  rows={3}
-                />
-              </div>
-            </div>
-          </div>
+            if (id) {
+                await api.put(`/expenses/${id}`, expense);
+                logService.info('Despesa atualizada com sucesso', { id });
+            } else {
+                await api.post('/expenses', expense);
+                logService.info('Despesa criada com sucesso', { expense });
+            }
 
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-blue-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Resumo</h2>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100">
-                    {formData.vehicleId && (
-                      <img
-                        src={vehicles.find(v => v.id === formData.vehicleId)?.image}
-                        alt="Vehicle"
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">
-                      {formData.vehicleId
-                        ? `${vehicles.find(v => v.id === formData.vehicleId)?.brand} ${vehicles.find(v => v.id === formData.vehicleId)?.model}`
-                        : 'Selecione um veículo'}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {formData.vehicleId
-                        ? vehicles.find(v => v.id === formData.vehicleId)?.licensePlate
-                        : 'Nenhum veículo selecionado'}
-                    </p>
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Tipo</span>
-                    <span className="font-medium">
-                      {formData.type === 'fuel' ? 'Combustível' : formData.type === 'maintenance' ? 'Manutenção' : formData.type === 'insurance' ? 'Seguro' : 'Imposto'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-600">Data</span>
-                    <span className="font-medium">
-                      {new Date(formData.date).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-600">Quilometragem</span>
-                    <span className="font-medium">
-                      {formData.mileage.toLocaleString('pt-BR')} km
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-600">Valor</span>
-                    <span className="font-medium text-blue-600">
-                      R$ {formData.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              fullWidth
-              isLoading={loading}
-              leftIcon={<Save className="w-5 h-5 mr-2 inline" />}
-            >
-              {id ? 'Salvar Alterações' : 'Criar Despesa'}
-            </Button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
+            setSuccess(true);
+            setTimeout(() => {
+                navigate('/expenses');
+            }, 2000);
+        } catch (error) {
+            setError('Erro ao salvar despesa');
+            logService.error('Erro ao salvar despesa', { expense, error });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+            <Box sx={{ p: 3 }}>
+                <Card>
+                    <CardContent>
+                        <Typography variant="h5" component="h2" gutterBottom>
+                            {id ? 'Editar Despesa' : 'Nova Despesa'}
+                        </Typography>
+
+                        <form onSubmit={handleSubmit}>
+                            <Grid container spacing={3}>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControl fullWidth required>
+                                        <InputLabel>Veículo</InputLabel>
+                                        <Select
+                                            name="vehicleId"
+                                            value={expense.vehicleId}
+                                            onChange={handleChange}
+                                            label="Veículo"
+                                        >
+                                            {vehicles.map((vehicle) => (
+                                                <MenuItem key={vehicle.id} value={vehicle.id}>
+                                                    {vehicle.brand} {vehicle.model} - {vehicle.licensePlate}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControl fullWidth required>
+                                        <InputLabel>Tipo</InputLabel>
+                                        <Select
+                                            name="type"
+                                            value={expense.type}
+                                            onChange={handleChange}
+                                            label="Tipo"
+                                        >
+                                            {expenseTypes.map((type) => (
+                                                <MenuItem key={type.value} value={type.value}>
+                                                    {type.label}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Descrição"
+                                        name="description"
+                                        value={expense.description}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Valor"
+                                        name="amount"
+                                        type="number"
+                                        value={expense.amount}
+                                        onChange={handleChange}
+                                        required
+                                        InputProps={{
+                                            startAdornment: 'R$ ',
+                                        }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <DatePicker
+                                        label="Data"
+                                        value={expense.date}
+                                        onChange={handleDateChange}
+                                        slotProps={{ textField: { fullWidth: true, required: true } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControl fullWidth required>
+                                        <InputLabel>Status</InputLabel>
+                                        <Select
+                                            name="status"
+                                            value={expense.status}
+                                            onChange={handleChange}
+                                            label="Status"
+                                        >
+                                            {statuses.map((status) => (
+                                                <MenuItem key={status} value={status}>
+                                                    {status}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControl fullWidth required>
+                                        <InputLabel>Forma de Pagamento</InputLabel>
+                                        <Select
+                                            name="paymentMethod"
+                                            value={expense.paymentMethod}
+                                            onChange={handleChange}
+                                            label="Forma de Pagamento"
+                                        >
+                                            {paymentMethods.map((method) => (
+                                                <MenuItem key={method} value={method}>
+                                                    {method}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Observações"
+                                        name="notes"
+                                        value={expense.notes}
+                                        onChange={handleChange}
+                                        multiline
+                                        rows={4}
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                                        <Button
+                                            variant="outlined"
+                                            onClick={() => navigate('/expenses')}
+                                            disabled={loading}
+                                        >
+                                            Cancelar
+                                        </Button>
+                                        <Button
+                                            type="submit"
+                                            variant="contained"
+                                            color="primary"
+                                            disabled={loading}
+                                        >
+                                            {loading ? 'Salvando...' : 'Salvar'}
+                                        </Button>
+                                    </Box>
+                                </Grid>
+                            </Grid>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                <Snackbar
+                    open={!!error}
+                    autoHideDuration={6000}
+                    onClose={() => setError(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                >
+                    <Alert severity="error" onClose={() => setError(null)}>
+                        {error}
+                    </Alert>
+                </Snackbar>
+
+                <Snackbar
+                    open={success}
+                    autoHideDuration={2000}
+                    onClose={() => setSuccess(false)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                >
+                    <Alert severity="success" onClose={() => setSuccess(false)}>
+                        Despesa salva com sucesso!
+                    </Alert>
+                </Snackbar>
+            </Box>
+        </LocalizationProvider>
+    );
 };
 
 export default ExpenseForm; 

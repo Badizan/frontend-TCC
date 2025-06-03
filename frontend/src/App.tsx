@@ -1,53 +1,133 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/layout/Layout';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import VehicleList from './pages/VehicleList';
-import VehicleDetail from './pages/VehicleDetail';
-import VehicleNew from './pages/VehicleNew';
-import Maintenance from './pages/Maintenance';
-import Reminders from './pages/Reminders';
-import Expenses from './pages/Expenses';
-import Reports from './pages/Reports';
-import Login from './pages/Login';
-import { authService } from './services/auth';
+import VehicleForm from './pages/VehicleForm';
+import ExpenseList from './pages/ExpenseList';
+import ExpenseForm from './pages/ExpenseForm';
+import ReminderList from './pages/ReminderList';
+import ReminderForm from './pages/ReminderForm';
+import Layout from './components/Layout';
 
-// Protected route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  if (!authService.isAuthenticated()) {
-    return <Navigate to="/login" />;
-  }
-  
-  return <>{children}</>;
+const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
-function App() {
+const App: React.FC = () => {
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="vehicles" element={<VehicleList />} />
-          <Route path="vehicles/new" element={<VehicleNew />} />
-          <Route path="vehicles/:id" element={<VehicleDetail />} />
-          <Route path="maintenance" element={<Maintenance />} />
-          <Route path="reminders" element={<Reminders />} />
-          <Route path="expenses" element={<Expenses />} />
-          <Route path="reports" element={<Reports />} />
-        </Route>
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/vehicles"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <VehicleList />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/vehicles/new"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <VehicleForm />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/vehicles/:id/edit"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <VehicleForm />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/expenses"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ExpenseList />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/expenses/new"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ExpenseForm />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/expenses/:id/edit"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ExpenseForm />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reminders"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ReminderList />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reminders/new"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ReminderForm />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reminders/:id/edit"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ReminderForm />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
-}
+};
 
 export default App;

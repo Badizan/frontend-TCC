@@ -1,147 +1,92 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Car } from 'lucide-react';
-import { authService } from '../services/auth';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError(null);
+
     try {
-      await authService.login({ email, password });
-      navigate('/dashboard');
+      await login(email, password);
     } catch (err) {
-      setError('Email ou senha inválidos');
+      setError('Email ou senha inválidos. Tente novamente.');
+      console.error('Erro ao fazer login:', err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center py-12 px-4 bg-gradient-to-br from-blue-100 via-white to-blue-300 animate-fade-in">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center animate-bounce-slow">
-          <span className="text-blue-600 bg-blue-100 p-4 rounded-full shadow-lg shadow-blue-200">
-            <Car className="w-12 h-12" />
-          </span>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100 p-4">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl border-2 border-blue-100">
+        <div>
+          <h1 className="text-3xl font-bold text-center text-gray-900">CarManager</h1>
+          <p className="mt-2 text-center text-gray-600">Faça login para acessar sua conta</p>
         </div>
-        <h2 className="mt-6 text-center text-4xl font-extrabold tracking-tight text-gray-900 drop-shadow-lg">
-          AutoManutenção
-        </h2>
-        <p className="mt-2 text-center text-base text-gray-600 font-medium">
-          Entre para gerenciar a manutenção dos seus veículos
-        </p>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white/90 py-10 px-6 shadow-2xl rounded-2xl sm:px-12 border border-blue-100">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           {error && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm font-semibold animate-shake">
+            <div className="p-4 bg-red-50 text-red-700 rounded-xl">
               {error}
             </div>
           )}
-          <form className="space-y-7" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="email" className="block text-lg font-semibold text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-base shadow-sm"
-                placeholder="seu@email.com"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-lg font-semibold text-gray-700 mb-1">
-                Senha
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition text-base shadow-sm"
-                placeholder="********"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                  Lembrar-me
-                </label>
-              </div>
-              <div className="text-sm">
-                <a href="#" className="font-medium text-blue-600 hover:text-blue-500 transition">
-                  Esqueceu sua senha?
-                </a>
-              </div>
-            </div>
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full py-3 rounded-lg font-bold text-lg shadow-md transition bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 focus:ring-2 focus:ring-blue-400 focus:outline-none ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Entrando...
-                  </span>
-                ) : 'Entrar'}
-              </button>
-            </div>
-          </form>
-          <div className="mt-8 text-center">
-            <p className="text-base text-gray-600">
-              Não tem uma conta?{' '}
-              <Link to="/register" className="font-bold text-blue-600 hover:text-blue-800 transition underline">
-                Cadastre-se
-              </Link>
-            </p>
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
+            />
           </div>
-        </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Senha
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full btn-primary px-6 py-3 rounded-xl shadow-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto" />
+            ) : (
+              'Entrar'
+            )}
+          </button>
+
+          <p className="text-center text-sm text-gray-600">
+            Não tem uma conta?{' '}
+            <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium">
+              Registre-se
+            </Link>
+          </p>
+        </form>
       </div>
-      <style>{`
-        .animate-bounce-slow { animation: bounce 2.5s infinite; }
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-        .animate-shake { animation: shake 0.4s; }
-        @keyframes shake {
-          10%, 90% { transform: translateX(-1px); }
-          20%, 80% { transform: translateX(2px); }
-          30%, 50%, 70% { transform: translateX(-4px); }
-          40%, 60% { transform: translateX(4px); }
-        }
-        .animate-fade-in { animation: fadeIn 0.7s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      `}</style>
     </div>
   );
 };

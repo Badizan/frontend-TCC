@@ -1,56 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, DollarSign, Car, Calendar, Tag, AlertTriangle, Wrench, Shield, FileText, Gauge } from 'lucide-react';
+import { Plus, Search, DollarSign, Car, Calendar, Tag, AlertTriangle, Wrench, Shield, FileText, Gauge, Edit, Trash2, Download } from 'lucide-react';
+import { expenseService, Expense } from '../services/expense.service';
+import { exportService } from '../services/export.service';
+import Pagination from '../components/common/Pagination';
+import SortSelect, { SortOption } from '../components/common/SortSelect';
 
-const mockExpenses = [
-  {
-    id: '1',
-    vehicleId: '1',
-    vehicle: {
-      brand: 'Toyota',
-      model: 'Corolla',
-      licensePlate: 'ABC1234',
-      image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200'
-    },
-    type: 'fuel',
-    description: 'Abastecimento',
-    date: '2024-03-15',
-    amount: 150.0,
-    mileage: 45000,
-    notes: 'Combustível comum'
-  },
-  {
-    id: '2',
-    vehicleId: '2',
-    vehicle: {
-      brand: 'Honda',
-      model: 'Civic',
-      licensePlate: 'DEF5678',
-      image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200'
-    },
-    type: 'maintenance',
-    description: 'Troca de óleo',
-    date: '2024-03-10',
-    amount: 280.0,
-    mileage: 30000,
-    notes: 'Inclui filtro de óleo'
-  },
-  {
-    id: '3',
-    vehicleId: '3',
-    vehicle: {
-      brand: 'Volkswagen',
-      model: 'Golf',
-      licensePlate: 'GHI9012',
-      image: 'https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=200'
-    },
-    type: 'insurance',
-    description: 'Seguro anual',
-    date: '2024-03-01',
-    amount: 2500.0,
-    mileage: 25000,
-    notes: 'Cobertura completa'
-  }
+const ITEMS_PER_PAGE = 10;
+
+const sortOptions: SortOption[] = [
+  { label: 'Data (mais recente)', value: 'date-desc' },
+  { label: 'Data (mais antiga)', value: 'date-asc' },
+  { label: 'Valor (maior)', value: 'amount-desc' },
+  { label: 'Valor (menor)', value: 'amount-asc' },
+  { label: 'Quilometragem (maior)', value: 'mileage-desc' },
+  { label: 'Quilometragem (menor)', value: 'mileage-asc' },
 ];
 
 const Expenses: React.FC = () => {
@@ -58,8 +22,50 @@ const Expenses: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterDate, setFilterDate] = useState('all');
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState('');
 
-  const filteredExpenses = mockExpenses.filter(expense => {
+  useEffect(() => {
+    loadExpenses();
+  }, []);
+
+  const loadExpenses = async () => {
+    try {
+      setLoading(true);
+      const data = await expenseService.getAll();
+      setExpenses(data);
+      setError(null);
+    } catch (err) {
+      setError('Erro ao carregar despesas. Tente novamente mais tarde.');
+      console.error('Erro ao carregar despesas:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta despesa?')) return;
+
+    try {
+      setLoading(true);
+      await expenseService.delete(id);
+      await loadExpenses();
+    } catch (err) {
+      setError('Erro ao excluir despesa. Tente novamente mais tarde.');
+      console.error('Erro ao excluir despesa:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    exportService.exportExpenses(filteredExpenses);
+  };
+
+  const filteredExpenses = expenses.filter(expense => {
     const matchesSearch = expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expense.vehicle.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expense.vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -68,6 +74,28 @@ const Expenses: React.FC = () => {
     const matchesDate = filterDate === 'all' || expense.date === filterDate;
     return matchesSearch && matchesType && matchesDate;
   });
+
+  const sortedExpenses = [...filteredExpenses].sort((a, b) => {
+    if (!sortBy) return 0;
+
+    const [field, direction] = sortBy.split('-');
+    const multiplier = direction === 'asc' ? 1 : -1;
+
+    switch (field) {
+      case 'date':
+        return multiplier * (new Date(a.date).getTime() - new Date(b.date).getTime());
+      case 'amount':
+        return multiplier * (a.amount - b.amount);
+      case 'mileage':
+        return multiplier * (a.mileage - b.mileage);
+      default:
+        return 0;
+    }
+  });
+
+  const totalPages = Math.ceil(sortedExpenses.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedExpenses = sortedExpenses.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -99,7 +127,15 @@ const Expenses: React.FC = () => {
     }
   };
 
-  const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalAmount = sortedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+  if (loading && expenses.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -108,18 +144,27 @@ const Expenses: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Despesas</h1>
           <p className="text-gray-500">Gerencie suas despesas e gastos</p>
         </div>
-        <button
-          onClick={() => navigate('/expenses/new')}
-          className="btn-primary px-6 py-2 rounded-xl shadow-lg hover:scale-105 transition-transform"
-        >
-          <Plus className="w-5 h-5 mr-2 inline" />
-          Nova Despesa
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleExport}
+            className="btn-secondary px-4 py-2 rounded-xl shadow-lg hover:scale-105 transition-transform"
+          >
+            <Download className="w-5 h-5 mr-2 inline" />
+            Exportar
+          </button>
+          <button
+            onClick={() => navigate('/expenses/new')}
+            className="btn-primary px-6 py-2 rounded-xl shadow-lg hover:scale-105 transition-transform"
+          >
+            <Plus className="w-5 h-5 mr-2 inline" />
+            Nova Despesa
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="relative">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
             placeholder="Buscar despesas..."
@@ -149,6 +194,11 @@ const Expenses: React.FC = () => {
           <option value="2024-03-10">10/03/2024</option>
           <option value="2024-03-01">01/03/2024</option>
         </select>
+        <SortSelect
+          options={sortOptions}
+          value={sortBy}
+          onChange={setSortBy}
+        />
       </div>
 
       <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-blue-100">
@@ -162,68 +212,114 @@ const Expenses: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredExpenses.map(expense => (
-            <div
-              key={expense.id}
-              className="bg-white rounded-xl p-6 border-2 border-gray-100 hover:scale-105 transition-transform cursor-pointer"
-              onClick={() => navigate(`/expenses/${expense.id}`)}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden">
-                    <img
-                      src={expense.vehicle.image}
-                      alt={`${expense.vehicle.brand} ${expense.vehicle.model}`}
-                      className="w-full h-full object-cover"
-                    />
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-gray-500">Carregando despesas...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Erro ao carregar despesas</h3>
+            <p className="text-gray-500">{error}</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedExpenses.map(expense => (
+                <div
+                  key={expense.id}
+                  className="bg-white rounded-xl p-6 border-2 border-gray-100 hover:scale-105 transition-transform cursor-pointer"
+                  onClick={() => navigate(`/expenses/${expense.id}`)}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden">
+                        <img
+                          src={expense.vehicle.image}
+                          alt={`${expense.vehicle.brand} ${expense.vehicle.model}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900">{expense.vehicle.brand} {expense.vehicle.model}</h3>
+                        <p className="text-sm text-gray-500">{expense.vehicle.licensePlate}</p>
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(expense.type)}`}>
+                      {expense.type === 'fuel' ? 'Combustível' : expense.type === 'maintenance' ? 'Manutenção' : expense.type === 'insurance' ? 'Seguro' : 'Imposto'}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">{expense.vehicle.brand} {expense.vehicle.model}</h3>
-                    <p className="text-sm text-gray-500">{expense.vehicle.licensePlate}</p>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      {getTypeIcon(expense.type)}
+                      <h4 className="font-semibold text-gray-900">{expense.description}</h4>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-sm">
+                        {new Date(expense.date).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <Gauge className="w-4 h-4" />
+                      <span className="text-sm">
+                        {expense.mileage.toLocaleString('pt-BR')} km
+                      </span>
+                    </div>
+
+                    <div className="text-lg font-bold text-blue-600">
+                      R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </div>
+
+                    {expense.notes && (
+                      <div className="text-sm text-gray-500">
+                        <p className="font-medium text-gray-700">Observações:</p>
+                        <p>{expense.notes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/expenses/${expense.id}/edit`);
+                      }}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(expense.id);
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(expense.type)}`}>
-                  {expense.type === 'fuel' ? 'Combustível' : expense.type === 'maintenance' ? 'Manutenção' : expense.type === 'insurance' ? 'Seguro' : 'Imposto'}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  {getTypeIcon(expense.type)}
-                  <h4 className="font-semibold text-gray-900">{expense.description}</h4>
-                </div>
-
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Calendar className="w-4 h-4" />
-                  <span className="text-sm">
-                    {new Date(expense.date).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Gauge className="w-4 h-4" />
-                  <span className="text-sm">
-                    {expense.mileage.toLocaleString('pt-BR')} km
-                  </span>
-                </div>
-
-                <div className="text-lg font-bold text-blue-600">
-                  R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-
-                {expense.notes && (
-                  <div className="text-sm text-gray-500">
-                    <p className="font-medium text-gray-700">Observações:</p>
-                    <p>{expense.notes}</p>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {filteredExpenses.length === 0 && (
+            {totalPages > 1 && (
+              <div className="mt-8">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {sortedExpenses.length === 0 && (
           <div className="text-center py-12">
             <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma despesa encontrada</h3>

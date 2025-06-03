@@ -3,11 +3,15 @@ import cors from '@fastify/cors'
 import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import { routes } from './routes'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 const app = fastify()
 
 app.register(cors, {
   origin: true,
+  credentials: true,
 })
 
 app.register(swagger, {
@@ -30,12 +34,14 @@ app.register(swaggerUI, {
 
 app.register(routes)
 
+const port = process.env.PORT || 3333
+
 app
   .listen({
     host: '0.0.0.0',
-    port: 3333,
+    port: Number(port),
   })
   .then(() => {
-    console.log('🚀 HTTP Server running on http://localhost:3333')
-    console.log('📚 Swagger docs at http://localhost:3333/docs')
+    console.log(`🚀 HTTP Server running on http://localhost:${port}`)
+    console.log(`📚 Swagger docs at http://localhost:${port}/docs`)
   }) 
