@@ -1,0 +1,36 @@
+{
+  "name": "tcc-backend",
+  "version": "1.0.0",
+  "description": "Backend application with Fastify, Prisma, and TypeScript",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^8.4.1",
+    "@fastify/swagger": "^8.12.1",
+    "@fastify/swagger-ui": "^2.0.0",
+    "@prisma/client": "^6.9.0",
+    "@types/bcrypt": "^5.0.2",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^16.5.0",
+    "fastify": "^4.24.3",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.22.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^20.5.7",
+    "prisma": "^6.9.0",
+    "tsx": "^3.12.7",
+    "typescript": "^5.2.2"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
