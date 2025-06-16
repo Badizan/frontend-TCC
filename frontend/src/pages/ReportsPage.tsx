@@ -61,6 +61,79 @@ const ReportsPage: React.FC = () => {
 
   const { filteredExpenses, filteredMaintenances } = getFilteredData();
 
+  const handleExportPDF = () => {
+    // Implementação básica de exportação
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Relatório de Manutenção - ${selectedVehicle === 'all' ? 'Todos os Veículos' : 'Veículo Selecionado'}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .header { text-align: center; margin-bottom: 30px; }
+              .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+              .stat-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+              .expenses-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              .expenses-table th, .expenses-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              .expenses-table th { background-color: #f5f5f5; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Relatório de Manutenção</h1>
+              <p>Período: ${dateRange}</p>
+              <p>Gerado em: ${new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+            
+            <div class="stats">
+              <div class="stat-card">
+                <h3>Gastos Totais</h3>
+                <p>R$ ${stats.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div class="stat-card">
+                <h3>Média por Despesa</h3>
+                <p>R$ ${stats.averageExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div class="stat-card">
+                <h3>Total de Manutenções</h3>
+                <p>${stats.totalMaintenances}</p>
+              </div>
+              <div class="stat-card">
+                <h3>Despesas Registradas</h3>
+                <p>${filteredExpenses.length}</p>
+              </div>
+            </div>
+            
+            <h2>Detalhes das Despesas</h2>
+            <table class="expenses-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Categoria</th>
+                  <th>Descrição</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredExpenses.map(expense => `
+                  <tr>
+                    <td>${new Date(expense.date).toLocaleDateString('pt-BR')}</td>
+                    <td>${formatCategory(expense.category)}</td>
+                    <td>${expense.description}</td>
+                    <td>R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   // Calcular estatísticas
   const stats = {
     totalExpenses: filteredExpenses.reduce((sum, e) => sum + e.amount, 0),
@@ -133,7 +206,10 @@ const ReportsPage: React.FC = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Relatórios</h1>
           <p className="text-sm text-gray-600">Análise completa dos custos e manutenções</p>
         </div>
-        <button className="btn-primary">
+        <button 
+          onClick={() => handleExportPDF()}
+          className="btn-primary"
+        >
           <Download className="w-4 h-4 mr-2" />
           Exportar PDF
         </button>

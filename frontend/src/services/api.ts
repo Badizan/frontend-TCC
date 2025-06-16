@@ -20,12 +20,18 @@ class ApiService {
     private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const url = `${API_BASE_URL}${endpoint}`
 
+        const headers: Record<string, string> = {
+            ...(this.token && { Authorization: `Bearer ${this.token}` }),
+            ...options.headers,
+        }
+
+        // Only set Content-Type if there's a body
+        if (options.body) {
+            headers['Content-Type'] = 'application/json'
+        }
+
         const config: RequestInit = {
-            headers: {
-                'Content-Type': 'application/json',
-                ...(this.token && { Authorization: `Bearer ${this.token}` }),
-                ...options.headers,
-            },
+            headers,
             ...options,
         }
 
@@ -40,6 +46,26 @@ class ApiService {
                 }
 
                 const errorData = await response.json().catch(() => ({}))
+
+                // Handle validation errors
+                if (errorData.message && Array.isArray(errorData.message)) {
+                    const validationErrors = errorData.message.map((err: any) => err.message || err).join(', ')
+                    throw new Error(validationErrors)
+                }
+
+                // Handle Zod validation errors
+                if (typeof errorData.message === 'string' && errorData.message.startsWith('[')) {
+                    try {
+                        const parsedErrors = JSON.parse(errorData.message)
+                        if (Array.isArray(parsedErrors)) {
+                            const validationErrors = parsedErrors.map((err: any) => err.message || err).join(', ')
+                            throw new Error(validationErrors)
+                        }
+                    } catch (parseError) {
+                        // If parsing fails, use the original message
+                    }
+                }
+
                 throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
             }
 
@@ -93,10 +119,13 @@ class ApiService {
         type: string
         ownerId: string
     }) {
-        return this.request<any>('/vehicles', {
+        console.log('🌐 API: Criando veículo:', data);
+        const result = await this.request<any>('/vehicles', {
             method: 'POST',
             body: JSON.stringify(data),
-        })
+        });
+        console.log('🌐 API: Veículo criado:', result);
+        return result;
     }
 
     async updateVehicle(id: string, data: Partial<{
@@ -203,6 +232,15 @@ class ApiService {
         return this.request<any>(`/reminders/${id}`, {
             method: 'DELETE',
         })
+    }
+
+    async completeReminder(id: string) {
+        console.log('🌐 API: Completando lembrete:', id);
+        const result = await this.request<any>(`/reminders/${id}/complete`, {
+            method: 'PATCH',
+        });
+        console.log('🌐 API: Resposta do servidor:', result);
+        return result;
     }
 
     // Expense methods

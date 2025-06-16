@@ -9,11 +9,18 @@ const VehicleNew: React.FC = () => {
   const navigate = useNavigate();
 
   const handleSubmit = async (vehicleData: any) => {
+    console.log('🚗 Tentando criar veículo:', vehicleData);
     try {
       const newVehicle = await createVehicle(vehicleData);
-      navigate(`/vehicles/${newVehicle.id}`);
+      console.log('✅ Veículo criado com sucesso:', newVehicle);
+      if (newVehicle && newVehicle.id) {
+        navigate(`/vehicles/${newVehicle.id}`);
+      } else {
+        navigate('/vehicles');
+      }
     } catch (error) {
-      console.error('Error creating vehicle:', error);
+      console.error('❌ Erro ao criar veículo:', error);
+      alert(`Erro ao criar veículo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 

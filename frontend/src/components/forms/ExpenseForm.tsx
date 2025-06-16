@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface ExpenseFormProps {
   vehicleId: string;
@@ -11,6 +12,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
   onSubmit,
   isLoading,
 }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     vehicleId,
     description: '',
@@ -20,6 +22,31 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
     mileage: 0,
   });
 
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Descrição é obrigatória';
+    }
+
+    if (formData.amount <= 0) {
+      newErrors.amount = 'Valor deve ser maior que zero';
+    }
+
+    if (!formData.date) {
+      newErrors.date = 'Data é obrigatória';
+    }
+
+    if (!formData.category) {
+      newErrors.category = 'Categoria é obrigatória';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -28,10 +55,20 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
       ...prev,
       [name]: name === 'amount' || name === 'mileage' ? Number(value) : value,
     }));
+
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     onSubmit({
       ...formData,
       date: new Date(formData.date),
@@ -51,10 +88,13 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
             name="description"
             value={formData.description}
             onChange={handleChange}
-            className="form-input"
+            className={`form-input ${errors.description ? 'border-red-500' : ''}`}
             placeholder="Ex: Abastecimento, Óleo do motor"
             required
           />
+          {errors.description && (
+            <p className="mt-1 text-sm text-red-600">{errors.description}</p>
+          )}
         </div>
 
         <div>
@@ -66,9 +106,10 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
             name="category"
             value={formData.category}
             onChange={handleChange}
-            className="form-input"
+            className={`form-input ${errors.category ? 'border-red-500' : ''}`}
             required
           >
+            <option value="">Selecione uma categoria</option>
             <option value="FUEL">Combustível</option>
             <option value="MAINTENANCE">Manutenção</option>
             <option value="INSURANCE">Seguro</option>
@@ -77,6 +118,9 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
             <option value="FINES">Multas</option>
             <option value="OTHER">Outros</option>
           </select>
+          {errors.category && (
+            <p className="mt-1 text-sm text-red-600">{errors.category}</p>
+          )}
         </div>
 
         <div>
@@ -89,12 +133,15 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
             name="amount"
             value={formData.amount}
             onChange={handleChange}
-            className="form-input"
+            className={`form-input ${errors.amount ? 'border-red-500' : ''}`}
             min="0"
             step="0.01"
             placeholder="Ex: 75.50"
             required
           />
+          {errors.amount && (
+            <p className="mt-1 text-sm text-red-600">{errors.amount}</p>
+          )}
         </div>
 
         <div>
@@ -107,9 +154,13 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
             name="date"
             value={formData.date}
             onChange={handleChange}
-            className="form-input"
+            className={`form-input ${errors.date ? 'border-red-500' : ''}`}
+            max={new Date().toISOString().split('T')[0]}
             required
           />
+          {errors.date && (
+            <p className="mt-1 text-sm text-red-600">{errors.date}</p>
+          )}
         </div>
 
         <div>
@@ -146,7 +197,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => window.history.back()}
+          onClick={() => navigate(-1)}
           disabled={isLoading}
         >
           Cancelar

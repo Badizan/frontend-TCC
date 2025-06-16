@@ -118,7 +118,7 @@ const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, ge
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {reminder.title || 'Sem título'}
+                  {reminder.description || 'Sem descrição'}
                 </p>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.textColor}`}>
                   {statusInfo.label}
@@ -127,7 +127,7 @@ const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, ge
               
               <div className="flex items-center space-x-2 mt-1">
                 <p className="text-xs text-gray-500">
-                  {formatReminderType(reminder.type)}
+                  {reminder.serviceType || 'Lembrete'}
                 </p>
                 {getVehicleName && reminder.vehicleId && (
                   <>
@@ -139,9 +139,7 @@ const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, ge
                 )}
               </div>
               
-              {reminder.description && (
-                <p className="text-sm text-gray-600 mt-1">{reminder.description}</p>
-              )}
+
               
               <div className="mt-2 flex items-center text-xs text-gray-500 space-x-4">
                 {reminder.dueDate && (
@@ -158,7 +156,7 @@ const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, ge
               </div>
             </div>
             
-            {!reminder.isCompleted && (
+            {!reminder.isCompleted && !reminder.completed && (
               <button
                 onClick={() => onComplete(reminder.id)}
                 className="ml-4 bg-white text-blue-600 border border-blue-600 hover:bg-blue-50 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

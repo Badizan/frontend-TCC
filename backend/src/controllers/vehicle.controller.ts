@@ -11,6 +11,8 @@ const createVehicleSchema = z.object({
   year: z.number().min(1900).max(new Date().getFullYear() + 1),
   licensePlate: z.string().min(1, 'License plate is required'),
   type: z.enum(['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN']),
+  color: z.string().optional(),
+  mileage: z.number().min(0).optional(),
   ownerId: z.string().uuid('Invalid owner ID')
 })
 
@@ -19,7 +21,9 @@ const updateVehicleSchema = z.object({
   model: z.string().min(1).optional(),
   year: z.number().min(1900).max(new Date().getFullYear() + 1).optional(),
   licensePlate: z.string().min(1).optional(),
-  type: z.enum(['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN']).optional()
+  type: z.enum(['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN']).optional(),
+  color: z.string().optional(),
+  mileage: z.number().min(0).optional()
 })
 
 export class VehicleController extends BaseController {

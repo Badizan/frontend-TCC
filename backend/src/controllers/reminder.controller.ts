@@ -82,4 +82,14 @@ export class ReminderController extends BaseController {
       return this.sendError(reply, error as Error);
     }
   }
+
+  async complete(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { id } = request.params as { id: string };
+      const reminder = await reminderService.markAsCompleted(id);
+      return this.sendResponse(reply, reminder);
+    } catch (error) {
+      return this.sendError(reply, error as Error);
+    }
+  }
 } 

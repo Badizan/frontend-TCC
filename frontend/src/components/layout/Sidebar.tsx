@@ -9,6 +9,7 @@ import {
   BarChart3,
   Car as CarIcon
 } from 'lucide-react';
+import { useAppStore } from '../../store';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
+  const { vehicles, maintenanceReminders } = useAppStore();
+  
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Veículos', href: '/vehicles', icon: Car },
@@ -24,6 +27,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     { name: 'Despesas', href: '/expenses', icon: DollarSign },
     { name: 'Relatórios', href: '/reports', icon: BarChart3 },
   ];
+
+  // Encontrar próximo lembrete de manutenção
+  const nextReminder = maintenanceReminders
+    .filter(reminder => !reminder.completed && reminder.dueDate)
+    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+    [0];
+
+  const getVehicleName = (vehicleId: string) => {
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    return vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Veículo';
+  };
 
   return (
     <>
@@ -70,23 +84,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           </div>
         </nav>
 
-        <div className="absolute bottom-4 left-4 right-4">
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <Clock className="h-5 w-5 text-orange-400" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-orange-800">
-                  Manutenção pendente
-                </h3>
-                <div className="mt-1 text-sm text-orange-700">
-                  <p>Troca de óleo em 15 dias para Toyota Corolla</p>
+        {/* Dynamic maintenance reminder */}
+        {nextReminder && (
+          <div className="absolute bottom-4 left-4 right-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <Clock className="h-5 w-5 text-orange-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-orange-800">
+                    Manutenção pendente
+                  </h3>
+                  <div className="mt-1 text-sm text-orange-700">
+                    <p>
+                      {nextReminder.description} para {getVehicleName(nextReminder.vehicleId)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </>
   );

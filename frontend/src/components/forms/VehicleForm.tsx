@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Vehicle, VehicleType } from '../../types';
 import { useAppStore } from '../../store';
 
@@ -13,6 +14,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
   onSubmit,
   isLoading,
 }) => {
+  const navigate = useNavigate();
   const { user } = useAppStore();
   
   const [formData, setFormData] = useState({
@@ -21,14 +23,30 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
     year: initialData?.year || new Date().getFullYear(),
     licensePlate: initialData?.licensePlate || '',
     type: (initialData?.type as VehicleType) || 'CAR',
+    color: initialData?.color || '',
+    mileage: initialData?.mileage || 0,
     ownerId: initialData?.ownerId || user?.id || '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    let processedValue = value;
+    
+    // Formatação especial para placa
+    if (name === 'licensePlate') {
+      // Remove caracteres não alfanuméricos e converte para maiúsculo
+      processedValue = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      
+      // Aplica formatação ABC-1234 ou ABC-1A23
+      if (processedValue.length > 3) {
+        processedValue = processedValue.slice(0, 3) + '-' + processedValue.slice(3, 7);
+      }
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'year' ? Number(value) : value,
+      [name]: name === 'year' || name === 'mileage' ? Number(value) : processedValue,
     }));
   };
 
@@ -101,13 +119,13 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
             onChange={handleChange}
             className="form-input"
             placeholder="Ex: ABC-1234"
-            pattern="[A-Z]{3}-?[0-9]{4}"
-            title="Formato: ABC-1234 ou ABC1234"
+            maxLength={8}
+            title="Formato brasileiro: ABC-1234 ou ABC-1A23 (Mercosul)"
             required
           />
         </div>
 
-        <div className="md:col-span-2">
+        <div>
           <label htmlFor="type" className="form-label">
             Tipo de Veículo <span className="text-red-500">*</span>
           </label>
@@ -125,14 +143,46 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
             <option value="VAN">Van/Utilitário</option>
           </select>
         </div>
+
+        <div>
+          <label htmlFor="color" className="form-label">
+            Cor
+          </label>
+          <input
+            type="text"
+            id="color"
+            name="color"
+            value={formData.color}
+            onChange={handleChange}
+            className="form-input"
+            placeholder="Ex: Branco, Preto, Azul"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="mileage" className="form-label">
+            Quilometragem Atual
+          </label>
+          <input
+            type="number"
+            id="mileage"
+            name="mileage"
+            value={formData.mileage}
+            onChange={handleChange}
+            className="form-input"
+            min="0"
+            placeholder="Ex: 50000"
+          />
+        </div>
       </div>
 
-      <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-sm font-medium text-gray-700 mb-2">Informações Importantes:</h3>
         <ul className="text-sm text-gray-600 space-y-1">
           <li>• Todos os campos marcados com * são obrigatórios</li>
-          <li>• A placa deve seguir o padrão brasileiro (ABC-1234)</li>
+          <li>• A placa será formatada automaticamente (ABC-1234 ou ABC-1A23)</li>
           <li>• Os dados podem ser editados posteriormente</li>
+          <li>• Campos opcionais: cor e quilometragem</li>
         </ul>
       </div>
 
@@ -140,7 +190,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => window.history.back()}
+          onClick={() => navigate(-1)}
           disabled={isLoading}
         >
           Cancelar

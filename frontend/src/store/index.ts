@@ -19,6 +19,7 @@ interface AppState {
   isAuthenticated: boolean;
 
   // Actions
+  initializeAuth: () => Promise<void>;
   login: (email: string, password: string) => Promise<any>;
   register: (data: { name: string; email: string; password: string; role: string }) => Promise<any>;
   logout: () => void;
@@ -48,6 +49,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   vehicleStats: null,
   user: null,
   isAuthenticated: !!localStorage.getItem('auth_token'),
+
+  // Initialize user profile if authenticated
+  initializeAuth: async () => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      try {
+        const user = await apiService.getProfile();
+        set({ user, isAuthenticated: true });
+        console.log('✅ Usuário carregado:', user);
+      } catch (error) {
+        console.log('❌ Token inválido, fazendo logout');
+        get().logout();
+      }
+    }
+  },
 
   // Auth actions
   login: async (email: string, password: string) => {
@@ -124,17 +140,53 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   createVehicle: async (vehicleData) => {
+    console.log('🚗 Store: Criando veículo:', vehicleData);
+    console.log('👤 Usuário atual:', get().user);
+
     set({ loading: true });
     try {
-      const newVehicle = await apiService.createVehicle(vehicleData);
+      const currentUser = get().user;
+
+      // Validate user is authenticated
+      if (!currentUser || !currentUser.id) {
+        throw new Error('Usuário não autenticado. Faça login novamente.');
+      }
+
+      // Validate user ID is a proper UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(currentUser.id)) {
+        console.error('❌ ID do usuário não é um UUID válido:', currentUser.id);
+        throw new Error('ID do usuário inválido. Faça login novamente.');
+      }
+
+      // Garantir que o ownerId está definido
+      const dataWithOwner = {
+        ...vehicleData,
+        ownerId: vehicleData.ownerId || currentUser.id
+      };
+
+      console.log('🚗 Store: Dados finais:', dataWithOwner);
+      console.log('🔐 Owner ID (UUID):', dataWithOwner.ownerId);
+
+      const newVehicle = await apiService.createVehicle(dataWithOwner);
+      console.log('✅ Store: Veículo criado:', newVehicle);
+
       set(state => ({
         vehicles: [...state.vehicles, newVehicle],
         loading: false
       }));
       return newVehicle;
     } catch (error) {
-      console.error('Error creating vehicle:', error);
+      console.error('❌ Store: Erro ao criar veículo:', error);
       set({ loading: false });
+      // Show user-friendly error message
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid owner ID') || error.message.includes('uuid')) {
+          alert('Erro de autenticação. Por favor, faça logout e login novamente.');
+        } else {
+          alert(`Erro ao criar veículo: ${error.message}`);
+        }
+      }
       throw error;
     }
   },
@@ -237,21 +289,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   completeReminder: async (id: string) => {
+    console.log('⏰ Tentando completar lembrete:', id);
     set({ loading: true });
     try {
-      const updatedReminder = await apiService.updateReminder(id, { isCompleted: true });
+      const updatedReminder = await apiService.completeReminder(id);
+      console.log('✅ Lembrete completado:', updatedReminder);
       if (updatedReminder) {
         set(state => ({
           maintenanceReminders: state.maintenanceReminders.map(r =>
-            r.id === id ? updatedReminder : r
+            r.id === id ? { ...r, completed: true, isCompleted: true } : r
           ),
           loading: false
         }));
+        console.log('✅ Store atualizado');
       } else {
+        console.log('⚠️ Nenhuma resposta do servidor');
         set({ loading: false });
       }
     } catch (error) {
-      console.error('Error completing reminder:', error);
+      console.error('❌ Erro ao completar lembrete:', error);
+      alert(`Erro ao completar lembrete: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       set({ loading: false });
     }
   },

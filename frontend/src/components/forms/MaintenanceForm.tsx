@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store';
 
 interface MaintenanceFormProps {
@@ -12,6 +13,7 @@ const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
   onSubmit,
   isLoading,
 }) => {
+  const navigate = useNavigate();
   const { user } = useAppStore();
   const [formData, setFormData] = useState({
     vehicleId,
@@ -153,7 +155,7 @@ const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => window.history.back()}
+          onClick={() => navigate(-1)}
           disabled={isLoading}
         >
           Cancelar

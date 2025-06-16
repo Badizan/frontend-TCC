@@ -12,6 +12,7 @@ import ExpensesPage from './pages/ExpensesPage';
 import ReportsPage from './pages/ReportsPage';
 import Login from './pages/Login';
 import { useAppStore } from './store';
+import { useAuthInit } from './hooks/useAuthInit';
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -25,6 +26,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
+  // Inicializar autenticação se necessário
+  useAuthInit();
+  
   return (
     <Router>
       <Routes>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface ReminderFormProps {
   vehicleId: string;
@@ -11,6 +12,7 @@ const ReminderForm: React.FC<ReminderFormProps> = ({
   onSubmit,
   isLoading,
 }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     vehicleId,
     description: '',
@@ -97,7 +99,7 @@ const ReminderForm: React.FC<ReminderFormProps> = ({
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => window.history.back()}
+          onClick={() => navigate(-1)}
           disabled={isLoading}
         >
           Cancelar
