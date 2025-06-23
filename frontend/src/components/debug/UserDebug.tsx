@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useStore } from '../../store';
+import { useAppStore } from '../../store';
 
 export const UserDebug: React.FC = () => {
-  const { user, isAuthenticated } = useStore();
+  const { user, isAuthenticated } = useAppStore();
   const [userValidation, setUserValidation] = useState<{
     isValid: boolean;
     errors: string[];

@@ -14,7 +14,7 @@ const VehicleNew: React.FC = () => {
       const newVehicle = await createVehicle(vehicleData);
       console.log('✅ Veículo criado com sucesso:', newVehicle);
       if (newVehicle && newVehicle.id) {
-        navigate(`/vehicles/${newVehicle.id}`);
+      navigate(`/vehicles/${newVehicle.id}`);
       } else {
         navigate('/vehicles');
       }

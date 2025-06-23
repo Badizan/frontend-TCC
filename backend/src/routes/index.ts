@@ -5,6 +5,8 @@ import { MaintenanceController } from '../controllers/maintenance.controller'
 import { AuthController } from '../controllers/auth.controller'
 import { ReminderController } from '../controllers/reminder.controller'
 import { ExpenseController } from '../controllers/expense.controller'
+import { NotificationController } from '../controllers/notification.controller'
+import { ReportController } from '../controllers/report.controller'
 import { authMiddleware } from '../middlewares/auth'
 
 const userController = new UserController()
@@ -452,12 +454,32 @@ export async function routes(app: FastifyInstance) {
   app.patch('/reminders/:id/complete', reminderController.complete.bind(reminderController))
   app.delete('/reminders/:id', reminderController.delete.bind(reminderController))
 
+  // Smart reminder routes
+  app.post('/reminders/smart', reminderController.createSmartReminder.bind(reminderController))
+  app.get('/reminders/upcoming', reminderController.getUpcomingReminders.bind(reminderController))
+  app.get('/reminders/mileage-based', reminderController.getMileageBasedReminders.bind(reminderController))
+  app.post('/reminders/recurring', reminderController.setupRecurringReminder.bind(reminderController))
+  app.put('/vehicles/:vehicleId/mileage', reminderController.updateVehicleMileage.bind(reminderController))
+
   // Expense routes
   app.post('/expenses', expenseController.create.bind(expenseController))
   app.get('/expenses', expenseController.findAll.bind(expenseController))
   app.get('/expenses/:id', expenseController.findById.bind(expenseController))
   app.put('/expenses/:id', expenseController.update.bind(expenseController))
   app.delete('/expenses/:id', expenseController.delete.bind(expenseController))
+
+  // Notification routes
+  app.get('/notifications', NotificationController.getUserNotifications)
+  app.patch('/notifications/:notificationId/read', NotificationController.markAsRead)
+  app.patch('/notifications/read-all', NotificationController.markAllAsRead)
+  app.delete('/notifications/:notificationId', NotificationController.deleteNotification)
+  app.get('/notifications/unread-count', NotificationController.getUnreadCount)
+  app.post('/notifications/push-subscription', NotificationController.savePushSubscription)
+  app.post('/notifications/test-push', NotificationController.testPushNotification)
+
+  // Report and prediction routes
+  app.get('/reports/expenses', ReportController.generateExpenseReport)
+  app.post('/predictions', ReportController.generatePrediction)
 
   // Dashboard routes
   app.get('/dashboard/stats', async (request, reply) => {

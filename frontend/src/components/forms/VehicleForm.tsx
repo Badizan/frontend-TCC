@@ -176,7 +176,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
         </div>
       </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
+      <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-sm font-medium text-gray-700 mb-2">Informações Importantes:</h3>
         <ul className="text-sm text-gray-600 space-y-1">
           <li>• Todos os campos marcados com * são obrigatórios</li>

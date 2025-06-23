@@ -35,6 +35,27 @@ enum MaintenanceType {
   INSPECTION
 }
 
+enum NotificationType {
+  MAINTENANCE_DUE
+  REMINDER_DUE
+  MILEAGE_ALERT
+  EXPENSE_LIMIT
+  SYSTEM_UPDATE
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum ReminderType {
+  TIME_BASED
+  MILEAGE_BASED
+  HYBRID
+}
+
 // Modelo de usuário
 model User {
   id            String        @id @default(uuid())
@@ -47,6 +68,8 @@ model User {
   updatedAt     DateTime      @updatedAt
   maintenances  Maintenance[] @relation("MechanicMaintenances")
   vehicles      Vehicle[]     @relation("UserVehicles")
+  notifications Notification[]
+  settings      UserSettings?
 
   @@map("users")
 }
@@ -59,11 +82,14 @@ model Vehicle {
   year          Int
   licensePlate  String        @unique
   type          VehicleType
+  color         String?
+  mileage       Int?          // Quilometragem atual
   ownerId       String
   owner         User          @relation("UserVehicles", fields: [ownerId], references: [id])
   maintenances  Maintenance[] @relation("VehicleMaintenances")
   reminders     Reminder[]    // relação com lembretes
   expenses      Expense[]     // relação com despesas
+  mileageRecords MileageRecord[] // Histórico de quilometragem
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -103,16 +129,22 @@ model Service {
   @@map("services")
 }
 
-// Modelo de lembrete de manutenção
+// Modelo de lembrete de manutenção atualizado
 model Reminder {
-  id            String   @id @default(uuid())
+  id            String        @id @default(uuid())
   vehicleId     String
-  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicle       Vehicle       @relation(fields: [vehicleId], references: [id])
   description   String
-  dueDate       DateTime
-  completed     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  type          ReminderType  @default(TIME_BASED)
+  dueDate       DateTime?     // Para lembretes baseados em tempo
+  dueMileage    Int?          // Para lembretes baseados em quilometragem
+  intervalDays  Int?          // Intervalo em dias para repetição
+  intervalMileage Int?        // Intervalo em quilometragem
+  completed     Boolean       @default(false)
+  recurring     Boolean       @default(false)
+  lastNotified  DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 // Modelo de despesa
@@ -124,8 +156,95 @@ model Expense {
   category      String
   amount        Float
   date          DateTime
+  mileage       Int?     // Quilometragem no momento da despesa
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// Novo modelo para notificações
+model Notification {
+  id          String             @id @default(uuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id])
+  type        NotificationType
+  title       String
+  message     String
+  channel     NotificationChannel
+  read        Boolean            @default(false)
+  sent        Boolean            @default(false)
+  scheduledFor DateTime?
+  sentAt      DateTime?
+  data        Json?              // Dados adicionais em JSON
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@map("notifications")
+}
+
+// Modelo para configurações do usuário
+model UserSettings {
+  id                    String  @id @default(uuid())
+  userId                String  @unique
+  user                  User    @relation(fields: [userId], references: [id])
+  
+  // Configurações de notificação
+  enablePushNotifications     Boolean @default(true)
+  enableEmailNotifications    Boolean @default(true)
+  enableSMSNotifications      Boolean @default(false)
+  
+  // Configurações de lembretes
+  defaultReminderDays         Int     @default(7)
+  defaultReminderMileage      Int     @default(5000)
+  maintenanceReminderAdvance  Int     @default(7)    // dias antes
+  
+  // Configurações de relatórios
+  defaultReportPeriod         String  @default("monthly") // weekly, monthly, yearly
+  expenseAlertLimit           Float?  // Limite de gastos para alerta
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_settings")
+}
+
+// Modelo para registros de quilometragem
+model MileageRecord {
+  id        String   @id @default(uuid())
+  vehicleId String
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  mileage   Int
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@map("mileage_records")
+}
+
+// Modelo para relatórios salvos
+model Report {
+  id          String   @id @default(uuid())
+  title       String
+  type        String   // expense, maintenance, performance
+  period      String   // weekly, monthly, yearly
+  data        Json     // Dados do relatório em JSON
+  generatedAt DateTime
+  generatedBy String   // ID do usuário
+  vehicleId   String?  // Opcional, para relatórios específicos de veículo
+  
+  @@map("reports")
+}
+
+// Modelo para previsões
+model Prediction {
+  id           String   @id @default(uuid())
+  vehicleId    String
+  type         String   // expense, maintenance
+  prediction   Json     // Dados da previsão
+  accuracy     Float?   // Precisão da previsão (0-1)
+  validUntil   DateTime
+  createdAt    DateTime @default(now())
+  
+  @@map("predictions")
 }
 
 // Adicione outros modelos abaixo conforme necessário

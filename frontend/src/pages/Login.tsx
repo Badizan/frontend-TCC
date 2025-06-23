@@ -80,31 +80,31 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-6 relative overflow-hidden">
       {/* Background Effects */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent"></div>
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-indigo-500/20 via-transparent to-transparent"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-200/30 via-transparent to-transparent"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-indigo-200/30 via-transparent to-transparent"></div>
       
       {/* Animated Background Elements */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-200/20 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Main Card */}
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 relative overflow-hidden">
+        <div className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-3xl shadow-2xl p-8 relative overflow-hidden">
           {/* Card Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/0 rounded-3xl"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-blue-50/20 rounded-3xl"></div>
           
           <div className="relative z-10">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
                 <Car className="w-10 h-10 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">
                 AutoManutenção
               </h1>
-              <p className="text-blue-200/80 text-sm leading-relaxed">
+              <p className="text-gray-600 text-sm leading-relaxed">
                 {isLogin 
                   ? 'Acesse sua plataforma de gestão automotiva' 
                   : 'Crie sua conta e comece a gerenciar seus veículos'
@@ -113,14 +113,14 @@ const Login: React.FC = () => {
             </div>
 
             {/* Form Toggle */}
-            <div className="flex bg-white/10 rounded-2xl p-1 mb-8 backdrop-blur-sm">
+            <div className="flex bg-gray-100 rounded-2xl p-1 mb-8 backdrop-blur-sm">
               <button
                 type="button"
                 onClick={() => setIsLogin(true)}
                 className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 ${
                   isLogin
-                    ? 'bg-white text-slate-900 shadow-lg'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                    ? 'bg-white text-gray-800 shadow-lg'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
                 }`}
               >
                 Entrar
@@ -130,8 +130,8 @@ const Login: React.FC = () => {
                 onClick={() => setIsLogin(false)}
                 className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 ${
                   !isLogin
-                    ? 'bg-white text-slate-900 shadow-lg'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                    ? 'bg-white text-gray-800 shadow-lg'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
                 }`}
               >
                 Criar Conta
@@ -142,25 +142,25 @@ const Login: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               {!isLogin && (
                 <div className="space-y-2 transform transition-all duration-500 ease-out">
-                  <label className="block text-sm font-medium text-blue-200/90">
+                  <label className="block text-sm font-medium text-gray-700">
                     Nome Completo
                   </label>
                   <div className="relative group">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 group-focus-within:text-blue-400 transition-colors" />
+                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                     <input
                       type="text"
                       name="name"
                       value={formData.name}
                       onChange={handleChange}
-                      className={`w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-300 ${
-                        errors.name ? 'border-red-400/50 focus:ring-red-400/50' : ''
+                      className={`w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 backdrop-blur-sm transition-all duration-300 ${
+                        errors.name ? 'border-red-300 focus:ring-red-300' : ''
                       }`}
                       placeholder="Seu nome completo"
                     />
                   </div>
                   {errors.name && (
-                    <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
-                      <span className="w-1 h-1 bg-red-400 rounded-full"></span>
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                       {errors.name}
                     </p>
                   )}
@@ -168,57 +168,57 @@ const Login: React.FC = () => {
               )}
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-blue-200/90">
+                <label className="block text-sm font-medium text-gray-700">
                   Email
                 </label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 group-focus-within:text-blue-400 transition-colors" />
+                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-300 ${
-                      errors.email ? 'border-red-400/50 focus:ring-red-400/50' : ''
+                    className={`w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 backdrop-blur-sm transition-all duration-300 ${
+                      errors.email ? 'border-red-300 focus:ring-red-300' : ''
                     }`}
                     placeholder="seu@email.com"
                   />
                 </div>
                 {errors.email && (
-                  <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
-                    <span className="w-1 h-1 bg-red-400 rounded-full"></span>
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                     {errors.email}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-blue-200/90">
+                <label className="block text-sm font-medium text-gray-700">
                   Senha
                 </label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 group-focus-within:text-blue-400 transition-colors" />
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-12 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-300 ${
-                      errors.password ? 'border-red-400/50 focus:ring-red-400/50' : ''
+                    className={`w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 backdrop-blur-sm transition-all duration-300 ${
+                      errors.password ? 'border-red-300 focus:ring-red-300' : ''
                     }`}
                     placeholder="••••••••"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
                 {errors.password && (
-                  <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
-                    <span className="w-1 h-1 bg-red-400 rounded-full"></span>
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                     {errors.password}
                   </p>
                 )}
@@ -226,32 +226,32 @@ const Login: React.FC = () => {
 
               {!isLogin && (
                 <div className="space-y-2 transform transition-all duration-500 ease-out">
-                  <label className="block text-sm font-medium text-blue-200/90">
+                  <label className="block text-sm font-medium text-gray-700">
                     Confirmar Senha
                   </label>
                   <div className="relative group">
-                    <Shield className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 group-focus-within:text-blue-400 transition-colors" />
+                    <Shield className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      className={`w-full pl-12 pr-12 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-300 ${
-                        errors.confirmPassword ? 'border-red-400/50 focus:ring-red-400/50' : ''
+                      className={`w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 backdrop-blur-sm transition-all duration-300 ${
+                        errors.confirmPassword ? 'border-red-300 focus:ring-red-300' : ''
                       }`}
                       placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
                       {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
                   {errors.confirmPassword && (
-                    <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
-                      <span className="w-1 h-1 bg-red-400 rounded-full"></span>
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                       {errors.confirmPassword}
                     </p>
                   )}
@@ -271,7 +271,7 @@ const Login: React.FC = () => {
                       <div className={`w-5 h-5 rounded-md border-2 transition-all duration-200 ${
                         rememberMe 
                           ? 'bg-blue-500 border-blue-500' 
-                          : 'border-white/30 group-hover:border-white/50'
+                          : 'border-gray-300 group-hover:border-gray-400'
                       }`}>
                         {rememberMe && (
                           <svg className="w-3 h-3 text-white absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -280,13 +280,13 @@ const Login: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <span className="text-sm text-white/80 group-hover:text-white transition-colors">
+                    <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors">
                       Lembrar de mim
                     </span>
                   </label>
                   <button
                     type="button"
-                    className="text-sm text-blue-300 hover:text-blue-200 transition-colors"
+                    className="text-sm text-blue-500 hover:text-blue-600 transition-colors"
                   >
                     Esqueci minha senha
                   </button>
@@ -294,15 +294,15 @@ const Login: React.FC = () => {
               )}
 
               {errors.submit && (
-                <div className="bg-red-500/20 border border-red-400/30 rounded-xl p-4">
-                  <p className="text-red-300 text-sm text-center">{errors.submit}</p>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <p className="text-red-600 text-sm text-center">{errors.submit}</p>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-4 px-6 rounded-2xl font-semibold hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl group"
+                className="w-full bg-gradient-to-r from-blue-400 to-indigo-500 text-white py-4 px-6 rounded-2xl font-semibold hover:from-blue-500 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl group"
               >
                 <span className="flex items-center justify-center gap-2">
                   {loading ? (
@@ -326,7 +326,7 @@ const Login: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-white/50 text-sm mt-8">
+        <p className="text-center text-gray-500 text-sm mt-8">
           © 2024 AutoManutenção. Desenvolvido com 💙 para facilitar sua vida.
         </p>
       </div>

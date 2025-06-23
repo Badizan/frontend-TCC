@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import { routes } from './routes'
+import { CronService } from './services/cronService'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -181,4 +182,9 @@ app
     console.log(`🚀 HTTP Server running on http://localhost:${port}`)
     console.log(`📚 Swagger docs at http://localhost:${port}/docs`)
     console.log('🚀 ===================================')
+
+    // Inicializar serviços de background
+    console.log('⏰ Inicializando serviços automáticos...')
+    CronService.initialize()
+    console.log('✅ Serviços automáticos iniciados com sucesso!')
   }) 
