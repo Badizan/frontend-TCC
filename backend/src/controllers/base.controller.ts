@@ -11,4 +11,13 @@ export class BaseController {
       statusCode,
     })
   }
+
+  protected static handleError(reply: FastifyReply, error: any, message: string) {
+    console.error(message, error)
+    return reply.status(500).send({
+      success: false,
+      message: message,
+      error: error.message
+    })
+  }
 } 

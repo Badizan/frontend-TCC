@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../store';
 import { Plus, Search, Filter, DollarSign, TrendingUp, Calendar } from 'lucide-react';
-import ExpenseForm from '../components/forms/ExpenseForm';
-import ExpenseChart from '../components/dashboard/ExpenseChart';
+import { ExpenseForm } from '../components/forms/ExpenseForm';
+import { ExpenseChart } from '../components/dashboard/ExpenseChart';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -306,7 +306,7 @@ const ExpensesPage: React.FC = () => {
                       {expense.description}
                       {expense.mileage && expense.mileage > 0 && (
                         <div className="text-xs text-gray-500">
-                          {expense.mileage.toLocaleString()} km
+                          {expense.mileage?.toLocaleString() || '-'} km
                         </div>
                       )}
                     </td>
@@ -343,4 +343,4 @@ const ExpensesPage: React.FC = () => {
   );
 };
 
-export default ExpensesPage; 
+export { ExpensesPage };

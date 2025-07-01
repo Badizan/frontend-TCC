@@ -163,7 +163,7 @@ const RecentMaintenances: React.FC = () => {
                     {maintenance.mileage && (
                       <div className="flex items-center space-x-1">
                         <span>•</span>
-                        <span>{maintenance.mileage.toLocaleString()} km</span>
+                        <span>{maintenance.mileage?.toLocaleString() || '-'} km</span>
                       </div>
                     )}
                   </div>

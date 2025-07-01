@@ -12,8 +12,7 @@ const createVehicleSchema = z.object({
   licensePlate: z.string().min(1, 'License plate is required'),
   type: z.enum(['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN']),
   color: z.string().optional(),
-  mileage: z.number().min(0).optional(),
-  ownerId: z.string().uuid('Invalid owner ID')
+  mileage: z.number().min(0).optional()
 })
 
 const updateVehicleSchema = z.object({
@@ -29,58 +28,111 @@ const updateVehicleSchema = z.object({
 export class VehicleController extends BaseController {
   async create(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const data = createVehicleSchema.parse(request.body)
-      const vehicle = await vehicleService.create(data)
-      return this.sendResponse(reply, vehicle, 201)
-    } catch (error) {
-      return this.sendError(reply, error as Error)
-    }
-  }
-
-  async findAll(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { ownerId } = request.query as { ownerId?: string }
-      const vehicles = await vehicleService.findAll(ownerId)
-      return this.sendResponse(reply, vehicles)
-    } catch (error) {
-      return this.sendError(reply, error as Error)
-    }
-  }
-
-  async findById(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { id } = request.params as { id: string }
-      const vehicle = await vehicleService.findById(id)
-
-      if (!vehicle) {
-        return reply.status(404).send({ message: 'Vehicle not found' })
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
       }
 
-      return this.sendResponse(reply, vehicle)
+      const data = createVehicleSchema.parse(request.body);
+
+      // Sempre usar o usuário autenticado como owner
+      const vehicleData = {
+        ...data,
+        ownerId: request.user.id
+      };
+
+      const vehicle = await vehicleService.create(vehicleData);
+      return this.sendResponse(reply, vehicle, 201);
     } catch (error) {
-      return this.sendError(reply, error as Error)
+      return this.sendError(reply, error as Error);
+    }
+  }
+
+  async getAll(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
+      // Sempre filtrar pelos veículos do usuário autenticado
+      const vehicles = await vehicleService.findAll(request.user.id);
+      return this.sendResponse(reply, vehicles);
+    } catch (error) {
+      return this.sendError(reply, error as Error);
+    }
+  }
+
+  async getById(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
+      const { id } = request.params as { id: string };
+      const vehicle = await vehicleService.findById(id);
+
+      if (!vehicle) {
+        return reply.status(404).send({ message: 'Vehicle not found' });
+      }
+
+      // Verificar se o veículo pertence ao usuário autenticado
+      if (vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this vehicle' });
+      }
+
+      return this.sendResponse(reply, vehicle);
+    } catch (error) {
+      return this.sendError(reply, error as Error);
     }
   }
 
   async update(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { id } = request.params as { id: string }
-      const data = updateVehicleSchema.parse(request.body)
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
 
-      const vehicle = await vehicleService.update(id, data)
-      return this.sendResponse(reply, vehicle)
+      const { id } = request.params as { id: string };
+      const data = updateVehicleSchema.parse(request.body);
+
+      // Verificar se o veículo pertence ao usuário antes de atualizar
+      const existingVehicle = await vehicleService.findById(id);
+      if (!existingVehicle) {
+        return reply.status(404).send({ message: 'Vehicle not found' });
+      }
+
+      if (existingVehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this vehicle' });
+      }
+
+      const vehicle = await vehicleService.update(id, data);
+      return this.sendResponse(reply, vehicle);
     } catch (error) {
-      return this.sendError(reply, error as Error)
+      return this.sendError(reply, error as Error);
     }
   }
 
   async delete(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { id } = request.params as { id: string }
-      await vehicleService.delete(id)
-      return this.sendResponse(reply, { message: 'Vehicle deleted successfully' })
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
+      const { id } = request.params as { id: string };
+
+      // Verificar se o veículo pertence ao usuário antes de deletar
+      const existingVehicle = await vehicleService.findById(id);
+      if (!existingVehicle) {
+        return reply.status(404).send({ message: 'Vehicle not found' });
+      }
+
+      if (existingVehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this vehicle' });
+      }
+
+      await vehicleService.delete(id);
+      return this.sendResponse(reply, { message: 'Vehicle deleted successfully' });
     } catch (error) {
-      return this.sendError(reply, error as Error)
+      return this.sendError(reply, error as Error);
     }
   }
 } 

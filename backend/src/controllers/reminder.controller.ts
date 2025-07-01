@@ -1,9 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { BaseController } from './base.controller';
 import { ReminderService } from '../services/reminder.service';
+import { VehicleService } from '../services/vehicle.service';
 import { z } from 'zod';
 
 const reminderService = new ReminderService();
+const vehicleService = new VehicleService();
 
 const createReminderSchema = z.object({
   vehicleId: z.string().uuid('Invalid vehicle ID'),
@@ -30,7 +32,18 @@ const updateReminderSchema = z.object({
 export class ReminderController extends BaseController {
   async create(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const data = createReminderSchema.parse(request.body);
+
+      // Verificar se o veículo pertence ao usuário
+      const vehicle = await vehicleService.findById(data.vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this vehicle' });
+      }
+
       const reminder = await reminderService.create(data);
       return this.sendResponse(reply, reminder, 201);
     } catch (error) {
@@ -38,16 +51,34 @@ export class ReminderController extends BaseController {
     }
   }
 
-  async findAll(request: FastifyRequest, reply: FastifyReply) {
+  async getAll(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { vehicleId, completed } = request.query as {
         vehicleId?: string;
         completed?: string;
       };
 
+      // Filtrar apenas pelos veículos do usuário
+      const userVehicles = await vehicleService.findAll(request.user.id);
+      const userVehicleIds = userVehicles.map(v => v.id);
+
       const filters: any = {};
-      if (vehicleId) filters.vehicleId = vehicleId;
       if (completed !== undefined) filters.completed = completed === 'true';
+
+      // Se vehicleId foi especificado, verificar se pertence ao usuário
+      if (vehicleId) {
+        if (!userVehicleIds.includes(vehicleId)) {
+          return reply.status(403).send({ message: 'Access denied to this vehicle' });
+        }
+        filters.vehicleId = vehicleId;
+      } else {
+        // Se não especificou veículo, buscar lembretes de todos os veículos do usuário
+        filters.vehicleIds = userVehicleIds;
+      }
 
       const reminders = await reminderService.findAll(filters);
       return this.sendResponse(reply, reminders);
@@ -58,11 +89,21 @@ export class ReminderController extends BaseController {
 
   async findById(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { id } = request.params as { id: string };
       const reminder = await reminderService.findById(id);
 
       if (!reminder) {
         return reply.status(404).send({ message: 'Reminder not found' });
+      }
+
+      // Verificar se o lembrete pertence a um veículo do usuário
+      const vehicle = await vehicleService.findById(reminder.vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this reminder' });
       }
 
       return this.sendResponse(reply, reminder);
@@ -73,11 +114,26 @@ export class ReminderController extends BaseController {
 
   async update(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { id } = request.params as { id: string };
       const data = updateReminderSchema.parse(request.body);
 
-      const reminder = await reminderService.update(id, data);
-      return this.sendResponse(reply, reminder);
+      // Verificar se o lembrete existe e pertence ao usuário
+      const reminder = await reminderService.findById(id);
+      if (!reminder) {
+        return reply.status(404).send({ message: 'Reminder not found' });
+      }
+
+      const vehicle = await vehicleService.findById(reminder.vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this reminder' });
+      }
+
+      const updatedReminder = await reminderService.update(id, data);
+      return this.sendResponse(reply, updatedReminder);
     } catch (error) {
       return this.sendError(reply, error as Error);
     }
@@ -85,7 +141,23 @@ export class ReminderController extends BaseController {
 
   async delete(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { id } = request.params as { id: string };
+
+      // Verificar se o lembrete existe e pertence ao usuário
+      const reminder = await reminderService.findById(id);
+      if (!reminder) {
+        return reply.status(404).send({ message: 'Reminder not found' });
+      }
+
+      const vehicle = await vehicleService.findById(reminder.vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this reminder' });
+      }
+
       await reminderService.delete(id);
       return this.sendResponse(reply, { message: 'Reminder deleted successfully' });
     } catch (error) {

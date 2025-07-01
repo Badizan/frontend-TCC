@@ -1,22 +1,7 @@
 import { PrismaClient } from '@prisma/client';
+import { ExpensePrediction, MaintenancePrediction } from '../types';
 
 const prisma = new PrismaClient();
-
-interface ExpensePrediction {
-    predictedAmount: number;
-    confidence: number;
-    category: string;
-    period: 'weekly' | 'monthly' | 'yearly';
-    factors: string[];
-}
-
-interface MaintenancePrediction {
-    nextMaintenanceDate: Date;
-    predictedCost: number;
-    confidence: number;
-    recommendedServices: string[];
-    factors: string[];
-}
 
 export class PredictionService {
     // Prever gastos mensais baseado no histórico
@@ -31,8 +16,8 @@ export class PredictionService {
 
             // Agrupar gastos por mês
             const expensesByMonth = this.groupExpensesByMonth(expenses);
-            Object.values(expensesByMonth).forEach(monthExpenses => {
-                const total = monthExpenses.reduce((sum: number, expense: any) => sum + expense.amount, 0);
+            Object.values(expensesByMonth).forEach((monthExpenses) => {
+                const total = (monthExpenses as any[]).reduce((sum: number, expense: any) => sum + expense.amount, 0);
                 monthlyTotals.push(total);
             });
 
@@ -62,10 +47,9 @@ export class PredictionService {
 
             return {
                 predictedAmount: Math.max(0, predictedAmount),
-                confidence,
-                category: mainCategory,
-                period: 'monthly',
-                factors
+                confidenceLevel: confidence,
+                factors,
+                timeframe: 'monthly'
             };
 
         } catch (error) {
@@ -127,11 +111,11 @@ export class PredictionService {
             const factors = this.identifyMaintenanceFactors(vehicle, maintenances);
 
             return {
-                nextMaintenanceDate,
-                predictedCost,
-                confidence,
-                recommendedServices,
-                factors
+                suggestedDate: nextMaintenanceDate,
+                urgencyLevel: confidence > 0.7 ? 'LOW' : confidence > 0.4 ? 'MEDIUM' : 'HIGH',
+                maintenanceType: 'PREVENTIVE',
+                estimatedCost: predictedCost,
+                reasons: factors
             };
 
         } catch (error) {

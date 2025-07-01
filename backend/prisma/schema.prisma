@@ -10,8 +10,6 @@ datasource db {
 // Enumerações para papéis de usuário, tipos e status de manutenção
 enum UserRole {
   ADMIN
-  MECHANIC
-  RECEPTIONIST
   OWNER
 }
 
@@ -44,10 +42,8 @@ enum NotificationType {
 }
 
 enum NotificationChannel {
-  PUSH
-  EMAIL
-  SMS
   IN_APP
+  EMAIL
 }
 
 enum ReminderType {
@@ -62,7 +58,7 @@ model User {
   name          String
   email         String        @unique
   password      String
-  role          UserRole      @default(MECHANIC)
+  role          UserRole      @default(OWNER)
   phone         String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -70,6 +66,7 @@ model User {
   vehicles      Vehicle[]     @relation("UserVehicles")
   notifications Notification[]
   settings      UserSettings?
+  passwordResets PasswordResetToken[] @relation("UserPasswordResets")
 
   @@map("users")
 }
@@ -80,7 +77,7 @@ model Vehicle {
   brand         String
   model         String
   year          Int
-  licensePlate  String        @unique
+  licensePlate  String
   type          VehicleType
   color         String?
   mileage       Int?          // Quilometragem atual
@@ -101,8 +98,8 @@ model Maintenance {
   id              String            @id @default(uuid())
   vehicleId       String
   vehicle         Vehicle           @relation("VehicleMaintenances", fields: [vehicleId], references: [id])
-  mechanicId      String
-  mechanic        User              @relation("MechanicMaintenances", fields: [mechanicId], references: [id])
+  mechanicId      String?
+  mechanic        User?             @relation("MechanicMaintenances", fields: [mechanicId], references: [id])
   type            MaintenanceType
   status          MaintenanceStatus @default(SCHEDULED)
   description     String
@@ -161,7 +158,7 @@ model Expense {
   updatedAt     DateTime @updatedAt
 }
 
-// Novo modelo para notificações
+// Modelo para notificações
 model Notification {
   id          String             @id @default(uuid())
   userId      String
@@ -170,6 +167,7 @@ model Notification {
   title       String
   message     String
   channel     NotificationChannel
+  category    String             // maintenance, expenses, reminders, system
   read        Boolean            @default(false)
   sent        Boolean            @default(false)
   scheduledFor DateTime?
@@ -187,64 +185,61 @@ model UserSettings {
   userId                String  @unique
   user                  User    @relation(fields: [userId], references: [id])
   
-  // Configurações de notificação
-  enablePushNotifications     Boolean @default(true)
-  enableEmailNotifications    Boolean @default(true)
-  enableSMSNotifications      Boolean @default(false)
+  // Configurações de canais de notificação
+  channels              Json    @default("{\"inApp\": true, \"email\": true}")
   
-  // Configurações de lembretes
-  defaultReminderDays         Int     @default(7)
-  defaultReminderMileage      Int     @default(5000)
-  maintenanceReminderAdvance  Int     @default(7)    // dias antes
+  // Configurações de categorias de notificação
+  categories           Json    @default("{\"maintenance\": {\"inApp\": true, \"email\": true}, \"expenses\": {\"inApp\": true, \"email\": true}, \"reminders\": {\"inApp\": true, \"email\": true}, \"system\": {\"inApp\": true, \"email\": false}}")
   
-  // Configurações de relatórios
-  defaultReportPeriod         String  @default("monthly") // weekly, monthly, yearly
-  expenseAlertLimit           Float?  // Limite de gastos para alerta
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Configurações avançadas
+  advancedSettings     Json    @default("{\"maintenanceReminderDays\": 7, \"mileageAlertThreshold\": 1000, \"monthlyExpenseLimit\": null}")
 
   @@map("user_settings")
 }
 
-// Modelo para registros de quilometragem
+// Modelo para registro de quilometragem
 model MileageRecord {
-  id        String   @id @default(uuid())
-  vehicleId String
-  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
-  mileage   Int
-  date      DateTime
-  notes     String?
-  createdAt DateTime @default(now())
-
-  @@map("mileage_records")
+  id          String   @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  mileage     Int
+  date        DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
-// Modelo para relatórios salvos
+// Modelo para relatórios
 model Report {
   id          String   @id @default(uuid())
-  title       String
-  type        String   // expense, maintenance, performance
+  userId      String
+  type        String   // maintenance, expense, etc.
   period      String   // weekly, monthly, yearly
-  data        Json     // Dados do relatório em JSON
-  generatedAt DateTime
-  generatedBy String   // ID do usuário
-  vehicleId   String?  // Opcional, para relatórios específicos de veículo
-  
-  @@map("reports")
+  data        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // Modelo para previsões
 model Prediction {
-  id           String   @id @default(uuid())
-  vehicleId    String
-  type         String   // expense, maintenance
-  prediction   Json     // Dados da previsão
-  accuracy     Float?   // Precisão da previsão (0-1)
-  validUntil   DateTime
-  createdAt    DateTime @default(now())
-  
-  @@map("predictions")
+  id          String   @id @default(uuid())
+  vehicleId   String
+  type        String   // maintenance, expense, etc.
+  prediction  Json
+  confidence  Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
-// Adicione outros modelos abaixo conforme necessário
+// Modelo para tokens de reset de senha
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserPasswordResets", fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}

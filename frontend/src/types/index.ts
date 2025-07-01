@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'MECHANIC' | 'RECEPTIONIST' | 'OWNER'
+export type UserRole = 'ADMIN' | 'OWNER'
 export type VehicleType = 'CAR' | 'MOTORCYCLE' | 'TRUCK' | 'VAN'
 export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type MaintenanceType = 'PREVENTIVE' | 'CORRECTIVE' | 'INSPECTION'

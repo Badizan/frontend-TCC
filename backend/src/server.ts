@@ -54,7 +54,7 @@ app.register(swagger, {
         
         ### 🚀 **Links Úteis**
         - **Frontend**: http://localhost:5173
-        - **API Base**: http://localhost:3333
+        - **API Base**: http://localhost:3000
       `,
       version: '1.0.0',
       contact: {
@@ -68,7 +68,7 @@ app.register(swagger, {
       },
       termsOfService: 'https://automanutencao.com.br/termos'
     },
-    host: 'localhost:3333',
+    host: 'localhost:3000',
     basePath: '/',
     schemes: ['http', 'https'],
     consumes: ['application/json'],
@@ -170,7 +170,7 @@ app.register(swaggerUI, {
 
 app.register(routes)
 
-const port = process.env.PORT || 3333
+const port = process.env.PORT || 3000
 
 app
   .listen({

@@ -8,16 +8,26 @@ interface MaintenanceFormProps {
   isLoading: boolean;
 }
 
-const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
+interface MaintenanceFormData {
+  vehicleId: string;
+  mechanicId?: string;
+  type: MaintenanceType;
+  description: string;
+  scheduledDate: string;
+  cost?: number;
+  notes?: string;
+}
+
+export const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
   vehicleId,
   onSubmit,
   isLoading,
 }) => {
   const navigate = useNavigate();
   const { user } = useAppStore();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<MaintenanceFormData>({
     vehicleId,
-    mechanicId: user?.id || '', // Usar o usuário atual como mecânico
+    mechanicId: user?.id || '',
     type: 'PREVENTIVE',
     description: '',
     scheduledDate: new Date().toISOString().split('T')[0],
@@ -38,8 +48,8 @@ const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.mechanicId) {
-      alert('É necessário ter um mecânico responsável pela manutenção.');
+    if (!formData.vehicleId || !formData.description || !formData.scheduledDate) {
+      alert('Por favor, preencha todos os campos obrigatórios');
       return;
     }
 
@@ -171,5 +181,3 @@ const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
     </form>
   );
 };
-
-export default MaintenanceForm;

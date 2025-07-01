@@ -8,7 +8,7 @@ interface MaintenanceTimelineProps {
   services: MaintenanceService[];
 }
 
-const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ services }) => {
+export const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ services }) => {
   const formatMaintenanceType = (type: string) => {
     switch (type) {
       case 'PREVENTIVE': return 'Preventiva';
@@ -157,5 +157,3 @@ const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ services }) =
     </div>
   );
 };
-
-export default MaintenanceTimeline;

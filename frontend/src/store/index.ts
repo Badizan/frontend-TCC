@@ -1,10 +1,14 @@
 import { create } from 'zustand';
 import { Vehicle, MaintenanceService, MaintenanceReminder, Expense, VehicleStats } from '../types';
-import apiService from '../services/api';
+import { ApiService } from '../services/api';
+
+// Create a single instance of ApiService
+const apiService = new ApiService();
 
 interface AppState {
   // Loading states
   loading: boolean;
+  error: string | null;
 
   // Data
   vehicles: Vehicle[];
@@ -36,11 +40,16 @@ interface AppState {
   fetchExpenses: (vehicleId?: string) => Promise<void>;
   createExpense: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Expense>;
   fetchVehicleStats: (vehicleId: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<any>;
+  resetPassword: (token: string, password: string) => Promise<any>;
+  validateResetToken: (token: string) => Promise<boolean>;
+  clearUserData: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial states
   loading: false,
+  error: null,
   vehicles: [],
   selectedVehicle: null,
   maintenanceServices: [],
@@ -48,54 +57,196 @@ export const useAppStore = create<AppState>((set, get) => ({
   expenses: [],
   vehicleStats: null,
   user: null,
-  isAuthenticated: !!localStorage.getItem('auth_token'),
+  isAuthenticated: false,
+
+  // Clear all user data utility function
+  clearUserData: () => {
+    console.log('🧹 Store: Limpando todos os dados do usuário...');
+    set({
+      vehicles: [],
+      selectedVehicle: null,
+      maintenanceServices: [],
+      maintenanceReminders: [],
+      expenses: [],
+      vehicleStats: null,
+      loading: false,
+      error: null
+    });
+
+    // Limpar cache local
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('vehicle_') ||
+        key.startsWith('maintenance_') ||
+        key.startsWith('expense_') ||
+        key.startsWith('reminder_') ||
+        key.startsWith('stats_') ||
+        key.startsWith('cache_')) {
+        localStorage.removeItem(key);
+      }
+    });
+  },
 
   // Initialize user profile if authenticated
   initializeAuth: async () => {
     const token = localStorage.getItem('auth_token');
-    if (token) {
-      try {
-        const user = await apiService.getProfile();
-        set({ user, isAuthenticated: true });
-        console.log('✅ Usuário carregado:', user);
-      } catch (error) {
-        console.log('❌ Token inválido, fazendo logout');
-        get().logout();
-      }
+    console.log('🔄 Store: initializeAuth chamado', { hasToken: !!token });
+
+    // Sempre limpar dados primeiro
+    const { clearUserData } = get();
+    clearUserData();
+
+    // Se não há token, define como não autenticado
+    if (!token) {
+      console.log('❌ Store: Sem token, definindo como não autenticado');
+      set({
+        isAuthenticated: false,
+        user: null,
+        loading: false,
+        error: null
+      });
+      return;
+    }
+
+    // Se já está carregando, não faça nada
+    const currentState = get();
+    if (currentState.loading) {
+      console.log('⏳ Store: Já carregando, pulando...');
+      return;
+    }
+
+    try {
+      set({ loading: true, error: null });
+      console.log('🔑 Store: Buscando perfil do usuário...');
+
+      const userProfile = await apiService.getProfile();
+      console.log('✅ Store: Usuário carregado com sucesso:', userProfile);
+
+      set({
+        user: userProfile,
+        isAuthenticated: true,
+        loading: false,
+        error: null
+      });
+    } catch (error: any) {
+      console.error('❌ Store: Erro ao carregar usuário:', error);
+
+      // Limpar token inválido
+      localStorage.removeItem('auth_token');
+      apiService.clearAllCache();
+
+      set({
+        user: null,
+        isAuthenticated: false,
+        loading: false,
+        error: 'Sessão expirada. Faça login novamente.'
+      });
+
+      throw error;
     }
   },
 
   // Auth actions
   login: async (email: string, password: string) => {
-    set({ loading: true });
     try {
+      set({ loading: true, error: null });
+      console.log('🔑 Store: Fazendo login...');
+
+      // Limpar dados da sessão anterior antes do login
+      set({
+        vehicles: [],
+        selectedVehicle: null,
+        maintenanceServices: [],
+        maintenanceReminders: [],
+        expenses: [],
+        vehicleStats: null,
+      });
+
       const response = await apiService.login(email, password);
+      console.log('✅ Store: Login bem-sucedido:', response);
+
+      // Definir estado imediatamente
       set({
         user: response.user,
         isAuthenticated: true,
-        loading: false
+        loading: false,
+        error: null,
+        // Garantir que todos os dados estão zerados para o novo usuário
+        vehicles: [],
+        selectedVehicle: null,
+        maintenanceServices: [],
+        maintenanceReminders: [],
+        expenses: [],
+        vehicleStats: null,
       });
+
+      console.log('✅ Store: Estado atualizado - isAuthenticated:', true);
       return response;
-    } catch (error) {
-      set({ loading: false });
+    } catch (error: any) {
+      console.error('❌ Store: Erro no login:', error);
+      set({
+        error: error.message || 'Erro ao fazer login',
+        loading: false,
+        isAuthenticated: false,
+        user: null
+      });
       throw error;
     }
   },
 
-  register: async (data) => {
-    set({ loading: true });
+  register: async (data: { name: string; email: string; password: string; role: string }) => {
     try {
+      set({ loading: true, error: null });
+      console.log('📝 Store: Fazendo registro...');
+
+      // Limpar dados da sessão anterior antes do registro
+      set({
+        vehicles: [],
+        selectedVehicle: null,
+        maintenanceServices: [],
+        maintenanceReminders: [],
+        expenses: [],
+        vehicleStats: null,
+      });
+
       const response = await apiService.register(data);
-      set({ loading: false });
-      return response;
-    } catch (error) {
-      set({ loading: false });
+      console.log('✅ Store: Registro bem-sucedido:', response);
+
+      // NÃO fazer login automático - apenas retornar sucesso
+      set({
+        loading: false,
+        error: null,
+        // Manter como não autenticado
+        isAuthenticated: false,
+        user: null,
+        // Manter dados zerados
+        vehicles: [],
+        selectedVehicle: null,
+        maintenanceServices: [],
+        maintenanceReminders: [],
+        expenses: [],
+        vehicleStats: null,
+      });
+
+      return { success: true, message: 'Conta criada com sucesso! Faça login para continuar.' };
+    } catch (error: any) {
+      set({
+        error: error.message || 'Erro ao registrar',
+        loading: false,
+        isAuthenticated: false,
+        user: null
+      });
       throw error;
     }
   },
 
   logout: () => {
-    apiService.clearToken();
+    console.log('🚪 Store: Fazendo logout e limpando todos os dados...');
+
+    // Limpar token, cache da API e recriar instância
+    apiService.clearAllCache();
+    localStorage.removeItem('auth_token');
+
+    // Limpar completamente TODOS os dados do estado
     set({
       user: null,
       isAuthenticated: false,
@@ -104,19 +255,34 @@ export const useAppStore = create<AppState>((set, get) => ({
       maintenanceServices: [],
       maintenanceReminders: [],
       expenses: [],
-      vehicleStats: null
+      vehicleStats: null,
+      loading: false,
+      error: null
     });
+
+    // Limpar qualquer cache adicional no localStorage
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('vehicle_') ||
+        key.startsWith('maintenance_') ||
+        key.startsWith('expense_') ||
+        key.startsWith('reminder_') ||
+        key.startsWith('stats_') ||
+        key.startsWith('cache_')) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    // Forçar reload da página para garantir limpeza total
+    console.log('🔄 Store: Limpeza completa realizada');
   },
 
-  // Vehicle actions
+  // Vehicle actions - Otimizadas para evitar loading desnecessário
   fetchVehicles: async () => {
-    set({ loading: true });
     try {
       const vehicles = await apiService.getVehicles();
-      set({ vehicles, loading: false });
+      set(state => ({ ...state, vehicles }));
     } catch (error) {
       console.error('Error fetching vehicles:', error);
-      set({ loading: false });
     }
   },
 
@@ -179,31 +345,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('❌ Store: Erro ao criar veículo:', error);
       set({ loading: false });
-      // Show user-friendly error message
-      if (error instanceof Error) {
-        if (error.message.includes('Invalid owner ID') || error.message.includes('uuid')) {
-          alert('Erro de autenticação. Por favor, faça logout e login novamente.');
-        } else {
-          alert(`Erro ao criar veículo: ${error.message}`);
-        }
-      }
       throw error;
     }
   },
 
-  updateVehicleData: async (id, vehicleData) => {
+  updateVehicleData: async (id: string, vehicleData: Partial<Vehicle>) => {
     set({ loading: true });
     try {
       const updatedVehicle = await apiService.updateVehicle(id, vehicleData);
-      if (updatedVehicle) {
-        set(state => ({
-          vehicles: state.vehicles.map(v => v.id === id ? updatedVehicle : v),
-          selectedVehicle: state.selectedVehicle?.id === id ? updatedVehicle : state.selectedVehicle,
-          loading: false
-        }));
-      } else {
-        set({ loading: false });
-      }
+
+      set(state => ({
+        vehicles: state.vehicles.map(v => v.id === id ? updatedVehicle : v),
+        selectedVehicle: state.selectedVehicle?.id === id ? updatedVehicle : state.selectedVehicle,
+        loading: false
+      }));
+
       return updatedVehicle;
     } catch (error) {
       console.error('Error updating vehicle:', error);
@@ -228,11 +384,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Maintenance actions
+  // Maintenance Services
   fetchMaintenanceServices: async (vehicleId?: string) => {
     try {
-      const services = await apiService.getMaintenances(vehicleId ? { vehicleId } : {});
-      set({ maintenanceServices: services });
+      const filters = vehicleId ? { vehicleId } : undefined;
+      const services = await apiService.getMaintenances(filters);
+      set(state => ({ ...state, maintenanceServices: services }));
     } catch (error) {
       console.error('Error fetching maintenance services:', error);
     }
@@ -243,16 +400,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const newService = await apiService.createMaintenance(serviceData);
       set(state => ({
-        maintenanceServices: [newService, ...state.maintenanceServices],
+        maintenanceServices: [...state.maintenanceServices, newService],
         loading: false
       }));
-
-      // Refresh expenses and stats if vehicleId is available
-      if (serviceData.vehicleId) {
-        get().fetchExpenses(serviceData.vehicleId);
-        get().fetchVehicleStats(serviceData.vehicleId);
-      }
-
       return newService;
     } catch (error) {
       console.error('Error creating maintenance service:', error);
@@ -261,12 +411,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Reminder actions
+  // Maintenance Reminders
   fetchMaintenanceReminders: async (vehicleId?: string) => {
     try {
-      const params = vehicleId ? { vehicleId } : {};
-      const reminders = await apiService.getReminders(params);
-      set({ maintenanceReminders: reminders });
+      const filters = vehicleId ? { vehicleId } : undefined;
+      const reminders = await apiService.getReminders(filters);
+      set(state => ({ ...state, maintenanceReminders: reminders }));
     } catch (error) {
       console.error('Error fetching maintenance reminders:', error);
     }
@@ -289,36 +439,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   completeReminder: async (id: string) => {
-    console.log('⏰ Tentando completar lembrete:', id);
     set({ loading: true });
     try {
-      const updatedReminder = await apiService.completeReminder(id);
-      console.log('✅ Lembrete completado:', updatedReminder);
-      if (updatedReminder) {
-        set(state => ({
-          maintenanceReminders: state.maintenanceReminders.map(r =>
-            r.id === id ? { ...r, completed: true, isCompleted: true } : r
-          ),
-          loading: false
-        }));
-        console.log('✅ Store atualizado');
-      } else {
-        console.log('⚠️ Nenhuma resposta do servidor');
-        set({ loading: false });
-      }
+      await apiService.completeReminder(id);
+      set(state => ({
+        maintenanceReminders: state.maintenanceReminders.map(r =>
+          r.id === id ? { ...r, completed: true } : r
+        ),
+        loading: false
+      }));
     } catch (error) {
-      console.error('❌ Erro ao completar lembrete:', error);
-      alert(`Erro ao completar lembrete: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      console.error('Error completing reminder:', error);
       set({ loading: false });
+      throw error;
     }
   },
 
-  // Expense actions
+  // Expenses
   fetchExpenses: async (vehicleId?: string) => {
     try {
-      const params = vehicleId ? { vehicleId } : {};
-      const expenses = await apiService.getExpenses(params);
-      set({ expenses });
+      const filters = vehicleId ? { vehicleId } : undefined;
+      const expenses = await apiService.getExpenses(filters);
+      set(state => ({ ...state, expenses }));
     } catch (error) {
       console.error('Error fetching expenses:', error);
     }
@@ -329,15 +471,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const newExpense = await apiService.createExpense(expenseData);
       set(state => ({
-        expenses: [newExpense, ...state.expenses],
+        expenses: [...state.expenses, newExpense],
         loading: false
       }));
-
-      // Refresh stats if vehicleId is available
-      if (expenseData.vehicleId) {
-        get().fetchVehicleStats(expenseData.vehicleId);
-      }
-
       return newExpense;
     } catch (error) {
       console.error('Error creating expense:', error);
@@ -346,63 +482,67 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // Vehicle Stats
   fetchVehicleStats: async (vehicleId: string) => {
+    set({ loading: true });
     try {
-      // Note: This would need to be implemented in the backend
-      // For now, we'll calculate basic stats from expenses
-      const expenses = await apiService.getExpenses({ vehicleId });
-      const maintenances = await apiService.getMaintenances({ vehicleId });
-      const reminders = await apiService.getReminders({ vehicleId });
-
-      const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-
-      // Calculate monthly expenses for chart
-      const monthlyExpenses = expenses.reduce((acc, expense) => {
-        const date = new Date(expense.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const monthName = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
-        if (!acc[monthKey]) {
-          acc[monthKey] = { month: monthName, amount: 0 };
-        }
-        acc[monthKey].amount += expense.amount;
-        return acc;
-      }, {} as Record<string, { month: string; amount: number }>);
-
-      const monthlyExpensesArray = Object.values(monthlyExpenses).sort((a, b) =>
-        new Date(a.month).getTime() - new Date(b.month).getTime()
-      );
-
-      // Calculate expense categories
-      const expensesByCategory = expenses.reduce((acc, expense) => {
-        acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
-        return acc;
-      }, {} as Record<string, number>);
-
+      // Mock implementation - replace with actual API call when available
       const stats = {
-        totalExpenses,
-        expenseCount: expenses.length,
-        averageExpense: expenses.length > 0 ? totalExpenses / expenses.length : 0,
-        totalMaintenance: maintenances.length,
-        upcomingMaintenance: reminders.filter(r => !r.completed).length,
-        monthlyExpenses: monthlyExpensesArray,
-        expensesByCategory
+        totalMaintenances: 0,
+        totalExpenses: 0,
+        upcomingReminders: 0,
+        lastMaintenanceDate: null
       };
-      set({ vehicleStats: stats });
+      set({ vehicleStats: stats, loading: false });
     } catch (error) {
       console.error('Error fetching vehicle stats:', error);
-      // Set empty stats to avoid undefined errors
-      set({
-        vehicleStats: {
-          totalExpenses: 0,
-          expenseCount: 0,
-          averageExpense: 0,
-          totalMaintenance: 0,
-          upcomingMaintenance: 0,
-          monthlyExpenses: [],
-          expensesByCategory: {}
-        }
-      });
+      set({ loading: false });
     }
   },
+
+  // Password recovery
+  forgotPassword: async (email: string) => {
+    try {
+      set({ loading: true, error: null });
+      const response = await apiService.forgotPassword(email);
+      set({ loading: false });
+      return response;
+    } catch (error: any) {
+      set({
+        error: error.message || 'Erro ao enviar email de recuperação',
+        loading: false
+      });
+      throw error;
+    }
+  },
+
+  resetPassword: async (token: string, password: string) => {
+    try {
+      set({ loading: true, error: null });
+      const response = await apiService.resetPassword(token, password);
+      set({ loading: false });
+      return response;
+    } catch (error: any) {
+      set({
+        error: error.message || 'Erro ao redefinir senha',
+        loading: false
+      });
+      throw error;
+    }
+  },
+
+  validateResetToken: async (token: string) => {
+    try {
+      set({ loading: true, error: null });
+      const response = await apiService.validateResetToken(token);
+      set({ loading: false });
+      return response.valid;
+    } catch (error: any) {
+      set({
+        error: error.message || 'Erro ao validar token',
+        loading: false
+      });
+      return false;
+    }
+  }
 }));

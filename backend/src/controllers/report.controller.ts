@@ -9,7 +9,7 @@ const predictionService = new PredictionService();
 
 export class ReportController extends BaseController {
     // Gerar relatório de gastos
-    static async generateExpenseReport(request: FastifyRequest, reply: FastifyReply) {
+    async generateExpenseReport(request: FastifyRequest, reply: FastifyReply) {
         try {
             const { id: userId } = request.user as any;
             const { vehicleId, period = 'monthly', format = 'json' } = request.query as any;
@@ -52,12 +52,12 @@ export class ReportController extends BaseController {
                 data: report
             });
         } catch (error) {
-            return this.handleError(reply, error, 'Erro ao gerar relatório de gastos');
+            return BaseController.handleError(reply, error, 'Erro ao gerar relatório de gastos');
         }
     }
 
     // Gerar previsão manual
-    static async generatePrediction(request: FastifyRequest, reply: FastifyReply) {
+    async generatePrediction(request: FastifyRequest, reply: FastifyReply) {
         try {
             const { id: userId } = request.user as any;
             const { vehicleId, type } = request.body as any;
@@ -107,7 +107,7 @@ export class ReportController extends BaseController {
                         vehicleId,
                         type,
                         prediction: prediction as any,
-                        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                        confidence: 0.8
                     }
                 });
 
@@ -122,12 +122,12 @@ export class ReportController extends BaseController {
                 });
             }
         } catch (error) {
-            return this.handleError(reply, error, 'Erro ao gerar previsão');
+            return BaseController.handleError(reply, error, 'Erro ao gerar previsão');
         }
     }
 
     // Métodos auxiliares
-    private static getStartDateForPeriod(period: string): Date {
+    private getStartDateForPeriod(period: string): Date {
         const now = new Date();
 
         switch (period) {
@@ -142,7 +142,7 @@ export class ReportController extends BaseController {
         }
     }
 
-    private static processExpenseData(expenses: any[], period: string) {
+    private processExpenseData(expenses: any[], period: string) {
         const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
         const averageExpense = totalExpenses / Math.max(1, expenses.length);
 
@@ -169,7 +169,7 @@ export class ReportController extends BaseController {
         };
     }
 
-    private static async generateExpensePDF(reportData: any): Promise<Buffer> {
+    private async generateExpensePDF(reportData: any): Promise<Buffer> {
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument();

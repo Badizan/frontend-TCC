@@ -367,4 +367,4 @@ const VehicleList: React.FC = () => {
   );
 };
 
-export default VehicleList;
+export { VehicleList };

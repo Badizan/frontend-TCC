@@ -10,7 +10,7 @@ interface RemindersListProps {
   getVehicleName?: (vehicleId: string) => string;
 }
 
-const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, getVehicleName }) => {
+export const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, getVehicleName }) => {
   const getSeverity = (dueDate?: Date | string) => {
     if (!dueDate) return 'normal';
     
@@ -150,7 +150,7 @@ const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, ge
                 
                 {reminder.dueMileage && reminder.dueMileage > 0 && (
                   <span>
-                    🛣️ {reminder.dueMileage.toLocaleString()} km
+                    🛣️ {reminder.dueMileage?.toLocaleString() || '-'} km
                   </span>
                 )}
               </div>
@@ -170,5 +170,3 @@ const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, ge
     </ul>
   );
 };
-
-export default RemindersList;

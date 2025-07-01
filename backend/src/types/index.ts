@@ -1,6 +1,6 @@
 import { FastifyRequest } from 'fastify'
 
-export type UserRole = 'ADMIN' | 'MECHANIC' | 'RECEPTIONIST' | 'OWNER'
+export type UserRole = 'ADMIN' | 'OWNER'
 export type VehicleType = 'CAR' | 'MOTORCYCLE' | 'TRUCK' | 'VAN'
 export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type MaintenanceType = 'PREVENTIVE' | 'CORRECTIVE' | 'INSPECTION'
@@ -77,6 +77,26 @@ export interface Expense {
 export interface AuthenticatedUser {
   id: string
   role: UserRole
+  email?: string
+  name?: string
+}
+
+// Interfaces para predições
+export interface ExpensePrediction {
+  predictedAmount: number
+  confidenceLevel: number
+  factors: string[]
+  timeframe: string
+  [key: string]: any
+}
+
+export interface MaintenancePrediction {
+  suggestedDate: Date
+  urgencyLevel: 'LOW' | 'MEDIUM' | 'HIGH'
+  maintenanceType: string
+  estimatedCost: number
+  reasons: string[]
+  [key: string]: any
 }
 
 declare module 'fastify' {

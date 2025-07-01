@@ -7,7 +7,7 @@ interface ExpenseFormProps {
   isLoading: boolean;
 }
 
-const ExpenseForm: React.FC<ExpenseFormProps> = ({
+export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   vehicleId,
   onSubmit,
   isLoading,
@@ -213,5 +213,3 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
     </form>
   );
 };
-
-export default ExpenseForm;

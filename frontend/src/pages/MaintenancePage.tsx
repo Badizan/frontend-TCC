@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../store';
 import { Plus, Search, Filter } from 'lucide-react';
-import MaintenanceTimeline from '../components/dashboard/MaintenanceTimeline';
-import MaintenanceForm from '../components/forms/MaintenanceForm';
+import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline';
+import { MaintenanceForm } from '../components/forms/MaintenanceForm';
 
 const MaintenancePage: React.FC = () => {
   const { maintenanceServices, vehicles, fetchMaintenanceServices, fetchVehicles, createMaintenanceService } = useAppStore();
@@ -151,4 +151,4 @@ const MaintenancePage: React.FC = () => {
   );
 };
 
-export default MaintenancePage; 
+export { MaintenancePage };

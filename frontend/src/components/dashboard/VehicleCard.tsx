@@ -46,7 +46,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onClick }) => {
             {vehicle.brand} {vehicle.model} ({vehicle.year})
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            {vehicle.currentMileage.toLocaleString()} km
+                            {vehicle.currentMileage?.toLocaleString() || vehicle.mileage?.toLocaleString() || '0'} km
           </p>
         </div>
         <Link to={`/vehicles/${vehicle.id}`} className="text-gray-400">

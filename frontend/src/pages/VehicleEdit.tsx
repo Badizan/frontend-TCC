@@ -2,9 +2,9 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { ArrowLeft } from 'lucide-react';
-import VehicleForm from '../components/forms/VehicleForm';
+import { VehicleForm } from '../components/forms/VehicleForm';
 
-const VehicleEdit: React.FC = () => {
+export const VehicleEdit: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { selectedVehicle, selectVehicle, updateVehicleData, loading } = useAppStore();
@@ -58,5 +58,3 @@ const VehicleEdit: React.FC = () => {
     </div>
   );
 };
-
-export default VehicleEdit; 

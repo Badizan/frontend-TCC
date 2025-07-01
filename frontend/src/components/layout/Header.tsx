@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Search, Bell, User, Menu, Car, LogOut, ChevronDown } from 'lucide-react';
+import { Search, User, Menu, Car, LogOut, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { useNavigate } from 'react-router-dom';
+import { NotificationBell } from './NotificationBell';
 
 interface HeaderProps {
   toggleSidebar: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAppStore();
   const navigate = useNavigate();
@@ -52,11 +53,10 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         </div>
 
         <div className="flex items-center space-x-4">
-          <button className="p-2 text-gray-400 hover:text-gray-500">
-            <Bell className="h-6 w-6" />
-          </button>
+          {/* Sino de notificações */}
+          <NotificationBell />
           
-          {/* User Menu */}
+          {/* Menu do usuário */}
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -97,7 +97,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                   >
                     <LogOut className="mr-3 h-4 w-4" />
                     Sair
-          </button>
+                  </button>
                 </div>
               </div>
             )}
@@ -107,5 +107,3 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     </header>
   );
 };
-
-export default Header;

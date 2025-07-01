@@ -25,11 +25,18 @@ export class ReminderService {
 
     async findAll(filters?: {
         vehicleId?: string
+        vehicleIds?: string[]
         completed?: boolean
     }) {
         const where: any = {}
 
-        if (filters?.vehicleId) where.vehicleId = filters.vehicleId
+        // Filtrar por veículo específico OU lista de veículos
+        if (filters?.vehicleId) {
+            where.vehicleId = filters.vehicleId
+        } else if (filters?.vehicleIds && filters.vehicleIds.length > 0) {
+            where.vehicleId = { in: filters.vehicleIds }
+        }
+
         if (typeof filters?.completed === 'boolean') where.completed = filters.completed
 
         return await prisma.reminder.findMany({
@@ -93,7 +100,6 @@ export class ReminderService {
         futureDate.setDate(futureDate.getDate() + days);
 
         const where: any = {
-            ...filters,
             completed: false,
             OR: [
                 {
@@ -109,6 +115,13 @@ export class ReminderService {
                 }
             ]
         };
+
+        // Adicionar filtros de veículo
+        if (filters.vehicleId) {
+            where.vehicleId = filters.vehicleId;
+        } else if (filters.vehicleIds && filters.vehicleIds.length > 0) {
+            where.vehicleId = { in: filters.vehicleIds };
+        }
 
         return await prisma.reminder.findMany({
             where,
@@ -175,15 +188,26 @@ export class ReminderService {
         });
     }
 
-
-
     // Buscar lembretes baseados em quilometragem
     async getMileageBasedReminders(filters: any) {
+        const where: any = {
+            completed: false
+        };
+
+        // Adicionar filtros de veículo
+        if (filters.vehicleId) {
+            where.vehicleId = filters.vehicleId;
+        } else if (filters.vehicleIds && filters.vehicleIds.length > 0) {
+            where.vehicleId = { in: filters.vehicleIds };
+        }
+
+        // Manter filtros de tipo
+        if (filters.type) {
+            where.type = filters.type;
+        }
+
         return await prisma.reminder.findMany({
-            where: {
-                ...filters,
-                completed: false
-            },
+            where,
             include: {
                 vehicle: {
                     select: { id: true, brand: true, model: true, licensePlate: true, mileage: true }

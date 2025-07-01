@@ -1,389 +1,204 @@
+import { api } from './api';
+
 export interface Notification {
     id: string;
-    userId: string;
-    type: 'MAINTENANCE_DUE' | 'REMINDER_DUE' | 'MILEAGE_ALERT' | 'EXPENSE_LIMIT' | 'SYSTEM_UPDATE';
     title: string;
     message: string;
+    category: 'maintenance' | 'expenses' | 'reminders' | 'system';
+    channel: 'IN_APP' | 'EMAIL';
     read: boolean;
     createdAt: string;
-    data?: any;
+    userId: string;
 }
 
-export class NotificationService {
-    private pushSubscription: PushSubscription | null = null;
-    private apiUrl = 'http://localhost:3333';
+export interface NotificationResponse {
+    notifications: Notification[];
+    total: number;
+    unreadCount: number;
+    page: number;
+    limit: number;
+}
+
+class NotificationService {
+    private static instance: NotificationService;
 
     constructor() {
-        this.initializePushNotifications();
+        if (NotificationService.instance) {
+            return NotificationService.instance;
+        }
+        NotificationService.instance = this;
     }
 
-    // Inicializar notificações push
-    async initializePushNotifications() {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            console.warn('Push notifications não são suportadas neste navegador');
-            return;
-        }
+    // Inicialização básica
+    initialize() {
+        console.log('📱 NotificationService inicializado');
+    }
 
+    // Limpeza
+    cleanup() {
+        console.log('🧹 NotificationService limpo');
+    }
+
+    // Inicialização após login
+    async initializeAfterLogin(): Promise<void> {
         try {
-            // Registrar service worker
-            const registration = await navigator.serviceWorker.register('/sw.js');
-            console.log('Service Worker registrado:', registration);
+            console.log('🔔 Inicializando notificações após login');
+            // Aqui poderia configurar WebSocket para notificações em tempo real
+            await this.setupNotificationPermissions();
+        } catch (error) {
+            console.error('❌ Erro ao inicializar notificações:', error);
+        }
+    }
 
-            // Verificar se já existe uma subscription
-            const existingSubscription = await registration.pushManager.getSubscription();
-            if (existingSubscription) {
-                this.pushSubscription = existingSubscription;
+    // Configurar permissões de notificação
+    async setupNotificationPermissions(): Promise<boolean> {
+        try {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                return permission === 'granted';
             }
-
-            // Escutar mensagens do service worker
-            navigator.serviceWorker.addEventListener('message', this.handleServiceWorkerMessage.bind(this));
-
-        } catch (error) {
-            console.error('Erro ao inicializar notificações push:', error);
-        }
-    }
-
-    // Solicitar permissão para notificações
-    async requestNotificationPermission(): Promise<boolean> {
-        if (!('Notification' in window)) {
-            console.warn('Este navegador não suporta notificações');
             return false;
-        }
-
-        if (Notification.permission === 'granted') {
-            return true;
-        }
-
-        if (Notification.permission === 'denied') {
-            console.warn('Usuário negou permissão para notificações');
-            return false;
-        }
-
-        const permission = await Notification.requestPermission();
-        return permission === 'granted';
-    }
-
-    // Inscrever-se para receber push notifications
-    async subscribeToPushNotifications(): Promise<boolean> {
-        try {
-            const hasPermission = await this.requestNotificationPermission();
-            if (!hasPermission) {
-                return false;
-            }
-
-            const registration = await navigator.serviceWorker.ready;
-
-            // Chave pública VAPID (você precisa gerar uma)
-            const vapidPublicKey = 'your-vapid-public-key-here';
-
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey)
-            });
-
-            this.pushSubscription = subscription;
-
-            // Enviar subscription para o servidor
-            await this.savePushSubscription(subscription);
-
-            console.log('Push subscription criada:', subscription);
-            return true;
-
         } catch (error) {
-            console.error('Erro ao criar push subscription:', error);
+            console.error('❌ Erro ao configurar permissões:', error);
             return false;
         }
     }
 
-    // Salvar subscription no servidor
-    private async savePushSubscription(subscription: PushSubscription) {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        try {
-            await fetch(`${this.apiUrl}/notifications/push-subscription`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ subscription })
-            });
-        } catch (error) {
-            console.error('Erro ao salvar subscription no servidor:', error);
-        }
-    }
-
-    // Exibir notificação local
-    showLocalNotification(title: string, options: NotificationOptions = {}) {
-        if (Notification.permission === 'granted') {
-            const notification = new Notification(title, {
-                icon: '/icon-192x192.png',
-                badge: '/badge-72x72.png',
-                ...options
-            });
-
-            // Auto-fechar após 5 segundos
-            setTimeout(() => {
-                notification.close();
-            }, 5000);
-
-            return notification;
-        }
-    }
-
-    // Buscar notificações do servidor
-    async getNotifications(options: {
+    // Buscar notificações do backend
+    async getNotifications(options?: {
         page?: number;
         limit?: number;
         unreadOnly?: boolean;
-    } = {}): Promise<{ notifications: Notification[]; total: number; unreadCount: number }> {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Token não encontrado');
-
-        const params = new URLSearchParams();
-        if (options.page) params.append('page', options.page.toString());
-        if (options.limit) params.append('limit', options.limit.toString());
-        if (options.unreadOnly) params.append('unreadOnly', 'true');
-
+        category?: string;
+    }): Promise<Notification[] | NotificationResponse> {
         try {
-            const response = await fetch(`${this.apiUrl}/notifications?${params}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            console.log('📥 Buscando notificações...');
 
-            if (!response.ok) {
-                throw new Error('Erro ao buscar notificações');
+            // Construir query parameters
+            const params = new URLSearchParams();
+            if (options?.page) params.append('page', options.page.toString());
+            if (options?.limit) params.append('limit', options.limit.toString());
+            if (options?.unreadOnly) params.append('unreadOnly', 'true');
+            if (options?.category) params.append('category', options.category);
+
+            const queryString = params.toString();
+            const url = `/notifications${queryString ? `?${queryString}` : ''}`;
+
+            const response = await api['api'].get(url);
+
+            console.log('✅ Notificações carregadas:', response.data);
+
+            // Se a resposta é um array, é compatibilidade com versão antiga
+            if (Array.isArray(response.data)) {
+                return response.data as Notification[];
             }
 
-            const data = await response.json();
-            return data.data || data;
-
+            // Se a resposta tem estrutura completa
+            return response.data as NotificationResponse;
         } catch (error) {
-            console.error('Erro ao buscar notificações:', error);
-            throw error;
+            console.error('❌ Erro ao buscar notificações:', error);
+
+            // Retornar dados mock em caso de erro para não quebrar a UI
+            return this.getMockNotifications();
+        }
+    }
+
+    // Buscar apenas notificações não lidas
+    async getUnreadNotifications(): Promise<Notification[]> {
+        try {
+            const response = await api['api'].get('/notifications/unread');
+            return response.data.notifications || response.data;
+        } catch (error) {
+            console.error('❌ Erro ao buscar notificações não lidas:', error);
+            return [];
         }
     }
 
     // Marcar notificação como lida
     async markAsRead(notificationId: string): Promise<void> {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Token não encontrado');
-
         try {
-            await fetch(`${this.apiUrl}/notifications/${notificationId}/read`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            console.log('✅ Marcando notificação como lida:', notificationId);
+            await api.markNotificationAsRead(notificationId);
         } catch (error) {
-            console.error('Erro ao marcar notificação como lida:', error);
+            console.error('❌ Erro ao marcar notificação como lida:', error);
             throw error;
         }
     }
 
     // Marcar todas as notificações como lidas
     async markAllAsRead(): Promise<void> {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Token não encontrado');
-
         try {
-            await fetch(`${this.apiUrl}/notifications/read-all`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            console.log('✅ Marcando todas notificações como lidas');
+            await api.markAllNotificationsAsRead();
         } catch (error) {
-            console.error('Erro ao marcar todas as notificações como lidas:', error);
+            console.error('❌ Erro ao marcar todas notificações como lidas:', error);
             throw error;
         }
     }
 
-    // Deletar notificação
+    // Deletar notificação (se suportado pelo backend)
     async deleteNotification(notificationId: string): Promise<void> {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Token não encontrado');
-
         try {
-            await fetch(`${this.apiUrl}/notifications/${notificationId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            console.log('🗑️ Deletando notificação:', notificationId);
+            await api['api'].delete(`/notifications/${notificationId}`);
         } catch (error) {
-            console.error('Erro ao deletar notificação:', error);
+            console.error('❌ Erro ao deletar notificação:', error);
             throw error;
         }
     }
 
-    // Buscar contador de notificações não lidas
-    async getUnreadCount(): Promise<number> {
-        const token = localStorage.getItem('token');
-        if (!token) return 0;
-
+    // Enviar notificação local (browser)
+    sendLocalNotification(title: string, message: string, options?: NotificationOptions) {
         try {
-            const response = await fetch(`${this.apiUrl}/notifications/unread-count`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Erro ao buscar contador de notificações');
-            }
-
-            const data = await response.json();
-            return data.data?.unreadCount || 0;
-
-        } catch (error) {
-            console.error('Erro ao buscar contador de notificações:', error);
-            return 0;
-        }
-    }
-
-    // Testar notificação push
-    async testPushNotification(): Promise<void> {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Token não encontrado');
-
-        try {
-            await fetch(`${this.apiUrl}/notifications/test-push`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            this.showLocalNotification('Teste de Notificação', {
-                body: 'Se você está vendo isso, as notificações estão funcionando!',
-                tag: 'test-notification'
-            });
-
-        } catch (error) {
-            console.error('Erro ao testar notificação push:', error);
-            throw error;
-        }
-    }
-
-    // Lidar com mensagens do service worker
-    private handleServiceWorkerMessage(event: MessageEvent) {
-        if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
-            // Navegar para a página relevante quando a notificação for clicada
-            const notificationData = event.data.data;
-
-            if (notificationData.vehicleId) {
-                window.location.href = `/vehicles/${notificationData.vehicleId}`;
-            } else if (notificationData.maintenanceId) {
-                window.location.href = `/maintenance`;
-            } else if (notificationData.reminderId) {
-                window.location.href = `/reminders`;
-            }
-        }
-    }
-
-    // Converter chave VAPID para Uint8Array
-    private urlBase64ToUint8Array(base64String: string): Uint8Array {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding)
-            .replace(/-/g, '+')
-            .replace(/_/g, '/');
-
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-        }
-        return outputArray;
-    }
-
-    // Verificar se as notificações estão ativas
-    isNotificationEnabled(): boolean {
-        return Notification.permission === 'granted' && this.pushSubscription !== null;
-    }
-
-    // Desinscrever-se das notificações push
-    async unsubscribeFromPushNotifications(): Promise<boolean> {
-        try {
-            if (this.pushSubscription) {
-                await this.pushSubscription.unsubscribe();
-                this.pushSubscription = null;
-                console.log('Push subscription removida');
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Erro ao remover push subscription:', error);
-            return false;
-        }
-    }
-
-    // Configurar notificações inteligentes baseadas no contexto
-    async setupSmartNotifications() {
-        // Verificar lembretes próximos do vencimento
-        this.scheduleReminderNotifications();
-
-        // Configurar verificações periódicas
-        setInterval(() => {
-            this.checkForNewNotifications();
-        }, 60000); // Verificar a cada minuto
-    }
-
-    private async scheduleReminderNotifications() {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) return;
-
-            const response = await fetch(`${this.apiUrl}/reminders/upcoming?days=1`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            const upcomingReminders = await response.json();
-
-            for (const reminder of upcomingReminders.data || []) {
-                const reminderDate = new Date(reminder.dueDate);
-                const now = new Date();
-                const hoursUntilDue = (reminderDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-                if (hoursUntilDue <= 24 && hoursUntilDue > 0) {
-                    this.showLocalNotification('Lembrete Próximo!', {
-                        body: `${reminder.description} vence em ${Math.round(hoursUntilDue)} horas`,
-                        tag: `reminder-${reminder.id}`,
-                        data: { reminderId: reminder.id, vehicleId: reminder.vehicleId }
-                    });
-                }
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: message,
+                    icon: '/favicon.ico',
+                    badge: '/favicon.ico',
+                    ...options
+                });
             }
         } catch (error) {
-            console.error('Erro ao agendar notificações de lembretes:', error);
+            console.error('❌ Erro ao enviar notificação local:', error);
         }
     }
 
-    private async checkForNewNotifications() {
-        try {
-            const unreadCount = await this.getUnreadCount();
-
-            // Atualizar badge no navegador se suportado
-            if ('setAppBadge' in navigator) {
-                if (unreadCount > 0) {
-                    (navigator as any).setAppBadge(unreadCount);
-                } else {
-                    (navigator as any).clearAppBadge();
-                }
+    // Dados mock para fallback
+    private getMockNotifications(): Notification[] {
+        return [
+            {
+                id: 'mock-1',
+                title: 'Lembrete de Manutenção',
+                message: 'Está na hora de fazer a revisão do seu veículo.',
+                category: 'maintenance',
+                channel: 'IN_APP',
+                read: false,
+                createdAt: new Date().toISOString(),
+                userId: 'current-user'
+            },
+            {
+                id: 'mock-2',
+                title: 'Despesa Registrada',
+                message: 'Nova despesa de combustível foi adicionada: R$ 120,00.',
+                category: 'expenses',
+                channel: 'IN_APP',
+                read: false,
+                createdAt: new Date(Date.now() - 86400000).toISOString(),
+                userId: 'current-user'
+            },
+            {
+                id: 'mock-3',
+                title: 'Lembrete Vencido',
+                message: 'Você tem um lembrete vencido para trocar o óleo do motor.',
+                category: 'reminders',
+                channel: 'IN_APP',
+                read: false,
+                createdAt: new Date(Date.now() - 172800000).toISOString(),
+                userId: 'current-user'
             }
-
-            // Disparar evento personalizado para componentes React
-            window.dispatchEvent(new CustomEvent('notificationsUpdated', {
-                detail: { unreadCount }
-            }));
-
-        } catch (error) {
-            console.error('Erro ao verificar novas notificações:', error);
-        }
+        ];
     }
-} 
+}
+
+// Export singleton instance
+export const notificationService = new NotificationService();

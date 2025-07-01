@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { ArrowLeft, Edit, PenTool as Tool, Clock, DollarSign, Plus, Trash2 } from 'lucide-react';
-import MaintenanceTimeline from '../components/dashboard/MaintenanceTimeline';
-import RemindersList from '../components/dashboard/RemindersList';
-import ExpenseChart from '../components/dashboard/ExpenseChart';
-import MaintenanceForm from '../components/forms/MaintenanceForm';
-import ReminderForm from '../components/forms/ReminderForm';
-import ExpenseForm from '../components/forms/ExpenseForm';
+import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline';
+import { RemindersList } from '../components/dashboard/RemindersList';
+import { ExpenseChart } from '../components/dashboard/ExpenseChart';
+import { MaintenanceForm } from '../components/forms/MaintenanceForm';
+import { ReminderForm } from '../components/forms/ReminderForm';
+import { ExpenseForm } from '../components/forms/ExpenseForm';
 
-const VehicleDetail: React.FC = () => {
+export const VehicleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const {
@@ -516,7 +516,7 @@ const VehicleDetail: React.FC = () => {
                   {expenses.map((expense) => (
                     <tr key={expense.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {expense.date.toLocaleDateString('pt-BR')}
+                        {new Date(expense.date).toLocaleDateString('pt-BR')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -604,5 +604,3 @@ const VehicleDetail: React.FC = () => {
     </div>
   );
 };
-
-export default VehicleDetail;

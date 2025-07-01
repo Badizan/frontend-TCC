@@ -3,11 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import StatsCard from '../components/dashboard/StatsCard';
 import RecentMaintenances from '../components/dashboard/RecentMaintenances';
-import RemindersList from '../components/dashboard/RemindersList';
+import { RemindersList } from '../components/dashboard/RemindersList';
 import SimpleExpenseChart from '../components/dashboard/SimpleExpenseChart';
-import ButtonTest from '../components/debug/ButtonTest';
-import ConnectivityTest from '../components/debug/ConnectivityTest';
-import { UserDebug } from '../components/debug/UserDebug';
+
 import { Car, Wrench, Clock, DollarSign, AlertTriangle } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -30,21 +28,23 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('🔄 Dashboard: Carregando dados...');
         await Promise.all([
           fetchVehicles(),
           fetchMaintenanceServices(),
           fetchExpenses(),
           fetchMaintenanceReminders(),
         ]);
+        console.log('✅ Dashboard: Dados carregados com sucesso');
       } catch (error) {
-        console.error('Erro ao carregar dados do dashboard:', error);
+        console.error('❌ Dashboard: Erro ao carregar dados:', error);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [fetchVehicles, fetchMaintenanceServices, fetchExpenses, fetchMaintenanceReminders]);
+  }, []); // Removido dependências para executar apenas no mount
 
   // Calcular estatísticas em tempo real
   const stats = {
@@ -284,12 +284,10 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
       
-      {/* Componentes de teste temporários */}
-      <ButtonTest />
-      <ConnectivityTest />
-      <UserDebug />
+      {/* Componentes de teste temporários - removidos para produção */}
+      
     </div>
   );
 };
 
-export default Dashboard;
+export { Dashboard };

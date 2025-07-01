@@ -1,9 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { BaseController } from './base.controller'
 import { MaintenanceService } from '../services/maintenance.service'
+import { VehicleService } from '../services/vehicle.service'
 import { z } from 'zod'
 
 const maintenanceService = new MaintenanceService()
+const vehicleService = new VehicleService()
 
 const createMaintenanceSchema = z.object({
   vehicleId: z.string().uuid('Invalid vehicle ID'),
@@ -28,7 +30,18 @@ const updateMaintenanceSchema = z.object({
 export class MaintenanceController extends BaseController {
   async create(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const data = createMaintenanceSchema.parse(request.body)
+
+      // Verificar se o veículo pertence ao usuário
+      const vehicle = await vehicleService.findById(data.vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this vehicle' });
+      }
+
       const maintenance = await maintenanceService.create(data)
       return this.sendResponse(reply, maintenance, 201)
     } catch (error) {
@@ -36,8 +49,12 @@ export class MaintenanceController extends BaseController {
     }
   }
 
-  async findAll(request: FastifyRequest, reply: FastifyReply) {
+  async getAll(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { vehicleId, mechanicId, status, type } = request.query as {
         vehicleId?: string
         mechanicId?: string
@@ -45,13 +62,24 @@ export class MaintenanceController extends BaseController {
         type?: 'PREVENTIVE' | 'CORRECTIVE' | 'INSPECTION'
       }
 
-      const maintenances = await maintenanceService.findAll({
-        vehicleId,
-        mechanicId,
-        status,
-        type
-      })
+      // Filtrar apenas pelos veículos do usuário
+      const userVehicles = await vehicleService.findAll(request.user.id);
+      const userVehicleIds = userVehicles.map(v => v.id);
 
+      const filters: any = { mechanicId, status, type };
+
+      // Se vehicleId foi especificado, verificar se pertence ao usuário
+      if (vehicleId) {
+        if (!userVehicleIds.includes(vehicleId)) {
+          return reply.status(403).send({ message: 'Access denied to this vehicle' });
+        }
+        filters.vehicleId = vehicleId;
+      } else {
+        // Se não especificou veículo, buscar manutenções de todos os veículos do usuário
+        filters.vehicleIds = userVehicleIds;
+      }
+
+      const maintenances = await maintenanceService.findAll(filters)
       return this.sendResponse(reply, maintenances)
     } catch (error) {
       return this.sendError(reply, error as Error)
@@ -60,11 +88,21 @@ export class MaintenanceController extends BaseController {
 
   async findById(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { id } = request.params as { id: string }
       const maintenance = await maintenanceService.findById(id)
 
       if (!maintenance) {
         return reply.status(404).send({ message: 'Maintenance not found' })
+      }
+
+      // Verificar se a manutenção pertence a um veículo do usuário
+      const vehicle = await vehicleService.findById(maintenance.vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this maintenance' });
       }
 
       return this.sendResponse(reply, maintenance)
@@ -75,11 +113,26 @@ export class MaintenanceController extends BaseController {
 
   async update(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { id } = request.params as { id: string }
       const data = updateMaintenanceSchema.parse(request.body)
 
-      const maintenance = await maintenanceService.update(id, data)
-      return this.sendResponse(reply, maintenance)
+      // Verificar se a manutenção existe e pertence ao usuário
+      const maintenance = await maintenanceService.findById(id);
+      if (!maintenance) {
+        return reply.status(404).send({ message: 'Maintenance not found' });
+      }
+
+      const vehicle = await vehicleService.findById(maintenance.vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this maintenance' });
+      }
+
+      const updatedMaintenance = await maintenanceService.update(id, data)
+      return this.sendResponse(reply, updatedMaintenance)
     } catch (error) {
       return this.sendError(reply, error as Error)
     }
@@ -87,7 +140,23 @@ export class MaintenanceController extends BaseController {
 
   async delete(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { id } = request.params as { id: string }
+
+      // Verificar se a manutenção existe e pertence ao usuário
+      const maintenance = await maintenanceService.findById(id);
+      if (!maintenance) {
+        return reply.status(404).send({ message: 'Maintenance not found' });
+      }
+
+      const vehicle = await vehicleService.findById(maintenance.vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this maintenance' });
+      }
+
       await maintenanceService.delete(id)
       return this.sendResponse(reply, { message: 'Maintenance deleted successfully' })
     } catch (error) {
@@ -97,7 +166,18 @@ export class MaintenanceController extends BaseController {
 
   async findByVehicle(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { vehicleId } = request.params as { vehicleId: string }
+
+      // Verificar se o veículo pertence ao usuário
+      const vehicle = await vehicleService.findById(vehicleId);
+      if (!vehicle || vehicle.ownerId !== request.user.id) {
+        return reply.status(403).send({ message: 'Access denied to this vehicle' });
+      }
+
       const maintenances = await maintenanceService.findByVehicle(vehicleId)
       return this.sendResponse(reply, maintenances)
     } catch (error) {
@@ -107,8 +187,17 @@ export class MaintenanceController extends BaseController {
 
   async findByMechanic(request: FastifyRequest, reply: FastifyReply) {
     try {
+      if (!request.user) {
+        return reply.status(401).send({ message: 'User not authenticated' });
+      }
+
       const { mechanicId } = request.params as { mechanicId: string }
-      const maintenances = await maintenanceService.findByMechanic(mechanicId)
+
+      // Buscar apenas manutenções de veículos do usuário para este mecânico
+      const userVehicles = await vehicleService.findAll(request.user.id);
+      const userVehicleIds = userVehicles.map(v => v.id);
+
+      const maintenances = await maintenanceService.findByMechanic(mechanicId, userVehicleIds)
       return this.sendResponse(reply, maintenances)
     } catch (error) {
       return this.sendError(reply, error as Error)

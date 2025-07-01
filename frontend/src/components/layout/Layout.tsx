@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import Header from './Header';
-import Sidebar from './Sidebar';
+import { Header } from './Header';
+import { Sidebar } from './Sidebar';
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,4 +25,4 @@ const Layout: React.FC = () => {
   );
 };
 
-export default Layout;
+export { Layout };

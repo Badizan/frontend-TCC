@@ -55,7 +55,7 @@ export const swaggerConfig: SwaggerOptions = {
             },
             termsOfService: 'https://automanutencao.com.br/termos'
         },
-        host: 'localhost:3333',
+        host: 'localhost:3000',
         basePath: '/',
         schemes: ['http', 'https'],
         consumes: ['application/json'],

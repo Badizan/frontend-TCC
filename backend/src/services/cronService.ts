@@ -63,12 +63,27 @@ export class CronService {
                     type: 'REMINDER_DUE',
                     title: 'Lembrete de Manutenção',
                     message: `${reminder.description} para ${reminder.vehicle.brand} ${reminder.vehicle.model}`,
-                    channel: 'PUSH',
+                    channel: 'IN_APP',
                     data: {
                         reminderId: reminder.id,
                         vehicleId: reminder.vehicleId
                     }
                 });
+
+                // Enviar também por email se estiver próximo
+                if (reminder.dueDate && new Date(reminder.dueDate).getTime() - now.getTime() <= 24 * 60 * 60 * 1000) {
+                    await notificationService.createNotification({
+                        userId: reminder.vehicle.ownerId,
+                        type: 'REMINDER_DUE',
+                        title: 'Lembrete de Manutenção',
+                        message: `${reminder.description} para ${reminder.vehicle.brand} ${reminder.vehicle.model}`,
+                        channel: 'EMAIL',
+                        data: {
+                            reminderId: reminder.id,
+                            vehicleId: reminder.vehicleId
+                        }
+                    });
+                }
 
                 // Atualizar último notificado
                 await prisma.reminder.update({
@@ -104,13 +119,29 @@ export class CronService {
                             type: 'MILEAGE_ALERT',
                             title: 'Alerta de Quilometragem',
                             message: `Faltam ${remainingMileage}km para: ${reminder.description}`,
-                            channel: 'PUSH',
+                            channel: 'IN_APP',
                             data: {
                                 reminderId: reminder.id,
                                 vehicleId: reminder.vehicleId,
                                 remainingMileage
                             }
                         });
+
+                        // Enviar por email se estiver muito próximo (menos de 100km)
+                        if (remainingMileage <= 100) {
+                            await notificationService.createNotification({
+                                userId: reminder.vehicle.ownerId,
+                                type: 'MILEAGE_ALERT',
+                                title: 'Alerta de Quilometragem',
+                                message: `URGENTE: Faltam apenas ${remainingMileage}km para: ${reminder.description}`,
+                                channel: 'EMAIL',
+                                data: {
+                                    reminderId: reminder.id,
+                                    vehicleId: reminder.vehicleId,
+                                    remainingMileage
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -147,25 +178,40 @@ export class CronService {
                     type: 'MAINTENANCE_DUE',
                     title: 'Manutenção em Atraso',
                     message: `A manutenção ${maintenance.description} está em atraso`,
-                    channel: 'PUSH',
-                    data: {
-                        maintenanceId: maintenance.id,
-                        vehicleId: maintenance.vehicleId
-                    }
-                });
-
-                // Notificar também o mecânico
-                await notificationService.createNotification({
-                    userId: maintenance.mechanicId,
-                    type: 'MAINTENANCE_DUE',
-                    title: 'Manutenção Agendada',
-                    message: `Manutenção agendada: ${maintenance.description}`,
                     channel: 'IN_APP',
                     data: {
                         maintenanceId: maintenance.id,
                         vehicleId: maintenance.vehicleId
                     }
                 });
+
+                // Enviar por email também
+                await notificationService.createNotification({
+                    userId: maintenance.vehicle.ownerId,
+                    type: 'MAINTENANCE_DUE',
+                    title: 'Manutenção em Atraso',
+                    message: `A manutenção ${maintenance.description} está em atraso. Por favor, agende o mais rápido possível.`,
+                    channel: 'EMAIL',
+                    data: {
+                        maintenanceId: maintenance.id,
+                        vehicleId: maintenance.vehicleId
+                    }
+                });
+
+                // Notificar também o mecânico (se existir)
+                if (maintenance.mechanicId) {
+                    await notificationService.createNotification({
+                        userId: maintenance.mechanicId,
+                        type: 'MAINTENANCE_DUE',
+                        title: 'Manutenção Agendada',
+                        message: `Manutenção agendada: ${maintenance.description}`,
+                        channel: 'IN_APP',
+                        data: {
+                            maintenanceId: maintenance.id,
+                            vehicleId: maintenance.vehicleId
+                        }
+                    });
+                }
             }
         } catch (error) {
             console.error('Erro ao verificar manutenções:', error);
@@ -242,21 +288,25 @@ export class CronService {
             });
 
             for (const user of users) {
-                if (user.settings?.expenseAlertLimit) {
+                // Verificar limite configurado em advancedSettings
+                const advancedSettings = user.settings?.advancedSettings as any;
+                const monthlyExpenseLimit = advancedSettings?.monthlyExpenseLimit;
+
+                if (monthlyExpenseLimit) {
                     const monthlyExpenses = user.vehicles.reduce((total, vehicle) => {
                         return total + vehicle.expenses.reduce((sum, expense) => sum + expense.amount, 0);
                     }, 0);
 
-                    if (monthlyExpenses > user.settings.expenseAlertLimit) {
+                    if (monthlyExpenses > monthlyExpenseLimit) {
                         await notificationService.createNotification({
                             userId: user.id,
                             type: 'EXPENSE_LIMIT',
                             title: 'Limite de Gastos Excedido',
                             message: `Gastos mensais: R$ ${monthlyExpenses.toFixed(2)}`,
-                            channel: 'PUSH',
+                            channel: 'IN_APP',
                             data: {
                                 monthlyExpenses,
-                                limit: user.settings.expenseAlertLimit
+                                limit: monthlyExpenseLimit
                             }
                         });
                     }
@@ -296,8 +346,8 @@ export class CronService {
                         data: {
                             vehicleId: vehicle.id,
                             type: 'expense',
-                            prediction: expensePrediction,
-                            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            prediction: JSON.parse(JSON.stringify(expensePrediction)),
+                            confidence: 0.8
                         }
                     });
                 }
@@ -307,8 +357,8 @@ export class CronService {
                         data: {
                             vehicleId: vehicle.id,
                             type: 'maintenance',
-                            prediction: maintenancePrediction,
-                            validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+                            prediction: JSON.parse(JSON.stringify(maintenancePrediction)),
+                            confidence: 0.7
                         }
                     });
                 }
@@ -337,12 +387,10 @@ export class CronService {
 
                 await prisma.report.create({
                     data: {
-                        title: 'Relatório Semanal',
+                        userId: user.id,
                         type: 'weekly_summary',
                         period: 'weekly',
-                        data: weeklyReport,
-                        generatedAt: new Date(),
-                        generatedBy: user.id
+                        data: JSON.parse(JSON.stringify(weeklyReport))
                     }
                 });
             }

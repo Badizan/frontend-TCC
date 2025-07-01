@@ -2,9 +2,9 @@ import React from 'react';
 import { useAppStore } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import VehicleForm from '../components/forms/VehicleForm';
+import { VehicleForm } from '../components/forms/VehicleForm';
 
-const VehicleNew: React.FC = () => {
+export const VehicleNew: React.FC = () => {
   const { createVehicle, loading } = useAppStore();
   const navigate = useNavigate();
 
@@ -42,5 +42,3 @@ const VehicleNew: React.FC = () => {
     </div>
   );
 };
-
-export default VehicleNew;

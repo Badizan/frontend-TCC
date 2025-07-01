@@ -7,7 +7,7 @@ interface ReminderFormProps {
   isLoading: boolean;
 }
 
-const ReminderForm: React.FC<ReminderFormProps> = ({
+export const ReminderForm: React.FC<ReminderFormProps> = ({
   vehicleId,
   onSubmit,
   isLoading,
@@ -115,5 +115,3 @@ const ReminderForm: React.FC<ReminderFormProps> = ({
     </form>
   );
 };
-
-export default ReminderForm;

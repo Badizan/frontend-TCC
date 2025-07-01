@@ -32,7 +32,7 @@ interface ExpenseChartProps {
   data: ExpenseData[];
 }
 
-const ExpenseChart: React.FC<ExpenseChartProps> = ({ data }) => {
+export const ExpenseChart: React.FC<ExpenseChartProps> = ({ data }) => {
   const [chartData, setChartData] = useState({
     labels: [],
     datasets: [],
@@ -113,5 +113,3 @@ const ExpenseChart: React.FC<ExpenseChartProps> = ({ data }) => {
     </div>
   );
 };
-
-export default ExpenseChart;

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../store';
 import { Plus, Search, Filter, Calendar, CheckCircle } from 'lucide-react';
-import RemindersList from '../components/dashboard/RemindersList';
-import ReminderForm from '../components/forms/ReminderForm';
+import { RemindersList } from '../components/dashboard/RemindersList';
+import { ReminderForm } from '../components/forms/ReminderForm';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -235,4 +235,4 @@ const RemindersPage: React.FC = () => {
   );
 };
 
-export default RemindersPage; 
+export { RemindersPage };

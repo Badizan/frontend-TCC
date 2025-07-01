@@ -5,9 +5,9 @@ import { MaintenanceController } from '../controllers/maintenance.controller'
 import { AuthController } from '../controllers/auth.controller'
 import { ReminderController } from '../controllers/reminder.controller'
 import { ExpenseController } from '../controllers/expense.controller'
-import { NotificationController } from '../controllers/notification.controller'
 import { ReportController } from '../controllers/report.controller'
 import { authMiddleware } from '../middlewares/auth'
+import { notificationRoutes } from './notification.routes'
 
 const userController = new UserController()
 const vehicleController = new VehicleController()
@@ -15,6 +15,7 @@ const maintenanceController = new MaintenanceController()
 const authController = new AuthController()
 const reminderController = new ReminderController()
 const expenseController = new ExpenseController()
+const reportController = new ReportController()
 
 export async function routes(app: FastifyInstance) {
   // ===== ROOT ENDPOINT =====
@@ -28,7 +29,9 @@ export async function routes(app: FastifyInstance) {
           properties: {
             message: { type: 'string' },
             version: { type: 'string' },
-            docs: { type: 'string' }
+            docs: { type: 'string' },
+            timestamp: { type: 'string' },
+            uptime: { type: 'number' }
           }
         }
       }
@@ -37,7 +40,31 @@ export async function routes(app: FastifyInstance) {
     return {
       message: '🚗 AutoManutenção API - Sistema de Gestão Veicular',
       version: '1.0.0',
-      docs: '/docs'
+      docs: '/docs',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    }
+  })
+
+  // ===== HEALTH CHECK =====
+  app.get('/health', {
+    schema: {
+      description: 'Verificação de saúde da API',
+      tags: ['Sistema'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            status: { type: 'string' },
+            timestamp: { type: 'string' }
+          }
+        }
+      }
+    }
+  }, async () => {
+    return {
+      status: 'OK',
+      timestamp: new Date().toISOString()
     }
   })
 
@@ -67,7 +94,7 @@ export async function routes(app: FastifyInstance) {
           },
           role: {
             type: 'string',
-            enum: ['ADMIN', 'MECHANIC', 'OWNER'],
+            enum: ['ADMIN', 'OWNER'],
             description: 'Tipo de usuário (padrão: OWNER)'
           }
         }
@@ -76,7 +103,6 @@ export async function routes(app: FastifyInstance) {
         201: {
           type: 'object',
           properties: {
-            message: { type: 'string' },
             user: {
               type: 'object',
               properties: {
@@ -85,13 +111,8 @@ export async function routes(app: FastifyInstance) {
                 email: { type: 'string' },
                 role: { type: 'string' }
               }
-            }
-          }
-        },
-        400: {
-          type: 'object',
-          properties: {
-            message: { type: 'string' }
+            },
+            token: { type: 'string' }
           }
         }
       }
@@ -109,7 +130,7 @@ export async function routes(app: FastifyInstance) {
           email: {
             type: 'string',
             format: 'email',
-            description: 'Email cadastrado no sistema'
+            description: 'Email do usuário'
           },
           password: {
             type: 'string',
@@ -121,11 +142,6 @@ export async function routes(app: FastifyInstance) {
         200: {
           type: 'object',
           properties: {
-            message: { type: 'string' },
-            token: {
-              type: 'string',
-              description: 'Token JWT para autenticação'
-            },
             user: {
               type: 'object',
               properties: {
@@ -134,13 +150,8 @@ export async function routes(app: FastifyInstance) {
                 email: { type: 'string' },
                 role: { type: 'string' }
               }
-            }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            message: { type: 'string' }
+            },
+            token: { type: 'string' }
           }
         }
       }
@@ -149,7 +160,7 @@ export async function routes(app: FastifyInstance) {
 
   app.get('/auth/profile', {
     schema: {
-      description: 'Obter perfil do usuário logado',
+      description: 'Obter perfil do usuário autenticado',
       tags: ['Autenticação'],
       security: [{ bearerAuth: [] }],
       response: {
@@ -159,76 +170,31 @@ export async function routes(app: FastifyInstance) {
             id: { type: 'string' },
             name: { type: 'string' },
             email: { type: 'string' },
-            role: { type: 'string' },
-            createdAt: { type: 'string', format: 'date-time' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            message: { type: 'string' }
+            role: { type: 'string' }
           }
         }
       }
     },
-    preHandler: [authMiddleware]
+    preHandler: authMiddleware
   }, authController.getProfile.bind(authController))
 
-  // Protected routes middleware
-  app.addHook('preHandler', async (request, reply) => {
-    if (request.url.startsWith('/auth/') || request.url === '/') {
-      return
-    }
-    return authMiddleware(request, reply)
-  })
-
-  // ===== USER ROUTES =====
-  app.get('/users', {
+  app.post('/auth/forgot-password', {
     schema: {
-      description: 'Listar todos os usuários (Admin)',
-      tags: ['Usuários'],
-      security: [{ bearerAuth: [] }],
-      response: {
-        200: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              name: { type: 'string' },
-              email: { type: 'string' },
-              role: { type: 'string' },
-              createdAt: { type: 'string', format: 'date-time' }
-            }
-          }
-        }
-      }
-    }
-  }, userController.findAll.bind(userController))
-
-  app.get('/users/:id', {
-    schema: {
-      description: 'Buscar usuário por ID',
-      tags: ['Usuários'],
-      security: [{ bearerAuth: [] }],
-      params: {
+      description: 'Solicitar recuperação de senha',
+      tags: ['Autenticação'],
+      body: {
         type: 'object',
+        required: ['email'],
         properties: {
-          id: { type: 'string', format: 'uuid' }
+          email: {
+            type: 'string',
+            format: 'email',
+            description: 'Email do usuário'
+          }
         }
       },
       response: {
         200: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            name: { type: 'string' },
-            email: { type: 'string' },
-            role: { type: 'string' },
-            createdAt: { type: 'string', format: 'date-time' }
-          }
-        },
-        404: {
           type: 'object',
           properties: {
             message: { type: 'string' }
@@ -236,260 +202,198 @@ export async function routes(app: FastifyInstance) {
         }
       }
     }
-  }, userController.findById.bind(userController))
+  }, authController.forgotPassword.bind(authController))
 
-  // ===== VEHICLE ROUTES =====
-  app.post('/vehicles', {
+  app.post('/auth/reset-password', {
     schema: {
-      description: 'Cadastrar novo veículo',
-      tags: ['Veículos'],
-      security: [{ bearerAuth: [] }],
+      description: 'Redefinir senha com token',
+      tags: ['Autenticação'],
       body: {
         type: 'object',
-        required: ['brand', 'model', 'year', 'licensePlate', 'type'],
+        required: ['token', 'password'],
         properties: {
-          brand: {
+          token: {
             type: 'string',
-            minLength: 2,
-            description: 'Marca do veículo'
+            description: 'Token de recuperação'
           },
-          model: {
+          password: {
             type: 'string',
-            minLength: 2,
-            description: 'Modelo do veículo'
-          },
-          year: {
-            type: 'integer',
-            minimum: 1900,
-            maximum: 2025,
-            description: 'Ano de fabricação'
-          },
-          licensePlate: {
-            type: 'string',
-            pattern: '^[A-Z]{3}[-]?[0-9]{4}$|^[A-Z]{3}[-]?[0-9][A-Z][0-9]{2}$',
-            description: 'Placa no formato brasileiro (ABC1234, ABC-1234, ABC1D23 ou ABC-1D23)'
-          },
-          type: {
-            type: 'string',
-            enum: ['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN'],
-            description: 'Tipo do veículo'
-          },
-          color: {
-            type: 'string',
-            description: 'Cor do veículo'
-          },
-          mileage: {
-            type: 'integer',
-            minimum: 0,
-            description: 'Quilometragem atual'
+            minLength: 6,
+            description: 'Nova senha'
           }
         }
       },
       response: {
-        201: {
+        200: {
           type: 'object',
           properties: {
-            id: { type: 'string' },
-            brand: { type: 'string' },
-            model: { type: 'string' },
-            year: { type: 'integer' },
-            licensePlate: { type: 'string' },
-            type: { type: 'string' },
-            color: { type: 'string' },
-            mileage: { type: 'integer' },
-            ownerId: { type: 'string' },
-            createdAt: { type: 'string', format: 'date-time' }
+            message: { type: 'string' }
           }
         }
       }
     }
-  }, vehicleController.create.bind(vehicleController))
+  }, authController.resetPassword.bind(authController))
 
+  app.post('/auth/validate-reset-token', {
+    schema: {
+      description: 'Validar token de recuperação',
+      tags: ['Autenticação'],
+      body: {
+        type: 'object',
+        required: ['token'],
+        properties: {
+          token: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            valid: { type: 'boolean' }
+          }
+        }
+      }
+    }
+  }, authController.validateResetToken.bind(authController))
+
+  // ===== PROTECTED ROUTES =====
+
+  // VEHICLES
   app.get('/vehicles', {
     schema: {
       description: 'Listar veículos do usuário',
       tags: ['Veículos'],
-      security: [{ bearerAuth: [] }],
-      querystring: {
-        type: 'object',
-        properties: {
-          type: {
-            type: 'string',
-            enum: ['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN'],
-            description: 'Filtrar por tipo de veículo'
-          },
-          search: {
-            type: 'string',
-            description: 'Buscar por marca, modelo ou placa'
-          }
-        }
-      },
-      response: {
-        200: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              brand: { type: 'string' },
-              model: { type: 'string' },
-              year: { type: 'integer' },
-              licensePlate: { type: 'string' },
-              type: { type: 'string' },
-              color: { type: 'string' },
-              mileage: { type: 'integer' },
-              createdAt: { type: 'string', format: 'date-time' }
-            }
-          }
-        }
-      }
-    }
-  }, vehicleController.findAll.bind(vehicleController))
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: authMiddleware
+  }, vehicleController.getAll.bind(vehicleController))
 
   app.get('/vehicles/:id', {
     schema: {
-      description: 'Buscar veículo por ID',
+      description: 'Obter detalhes de um veículo',
       tags: ['Veículos'],
       security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
         properties: {
-          id: { type: 'string', format: 'uuid' }
-        }
-      },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            brand: { type: 'string' },
-            model: { type: 'string' },
-            year: { type: 'integer' },
-            licensePlate: { type: 'string' },
-            type: { type: 'string' },
-            color: { type: 'string' },
-            mileage: { type: 'integer' },
-            ownerId: { type: 'string' },
-            createdAt: { type: 'string', format: 'date-time' },
-            maintenances: {
-              type: 'array',
-              items: { type: 'object' }
-            },
-            reminders: {
-              type: 'array',
-              items: { type: 'object' }
-            },
-            expenses: {
-              type: 'array',
-              items: { type: 'object' }
-            }
-          }
+          id: { type: 'string' }
         }
       }
-    }
-  }, vehicleController.findById.bind(vehicleController))
+    },
+    preHandler: authMiddleware
+  }, vehicleController.getById.bind(vehicleController))
+
+  app.post('/vehicles', {
+    schema: {
+      description: 'Criar novo veículo',
+      tags: ['Veículos'],
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: authMiddleware
+  }, vehicleController.create.bind(vehicleController))
 
   app.put('/vehicles/:id', {
     schema: {
-      description: 'Atualizar dados do veículo',
+      description: 'Atualizar veículo',
       tags: ['Veículos'],
       security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
         properties: {
-          id: { type: 'string', format: 'uuid' }
-        }
-      },
-      body: {
-        type: 'object',
-        properties: {
-          brand: { type: 'string', minLength: 2 },
-          model: { type: 'string', minLength: 2 },
-          year: { type: 'integer', minimum: 1900, maximum: 2025 },
-          licensePlate: { type: 'string', pattern: '^[A-Z]{3}[-]?[0-9]{4}$|^[A-Z]{3}[-]?[0-9][A-Z][0-9]{2}$' },
-          type: { type: 'string', enum: ['CAR', 'MOTORCYCLE', 'TRUCK', 'VAN'] },
-          color: { type: 'string' },
-          mileage: { type: 'integer', minimum: 0 }
+          id: { type: 'string' }
         }
       }
-    }
+    },
+    preHandler: authMiddleware
   }, vehicleController.update.bind(vehicleController))
 
   app.delete('/vehicles/:id', {
     schema: {
-      description: 'Excluir veículo (remove também manutenções, lembretes e despesas)',
+      description: 'Deletar veículo',
       tags: ['Veículos'],
       security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
         properties: {
-          id: { type: 'string', format: 'uuid' }
-        }
-      },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            message: { type: 'string' }
-          }
+          id: { type: 'string' }
         }
       }
-    }
+    },
+    preHandler: authMiddleware
   }, vehicleController.delete.bind(vehicleController))
 
-  // Maintenance routes
-  app.post('/maintenances', maintenanceController.create.bind(maintenanceController))
-  app.get('/maintenances', maintenanceController.findAll.bind(maintenanceController))
-  app.get('/maintenances/:id', maintenanceController.findById.bind(maintenanceController))
-  app.put('/maintenances/:id', maintenanceController.update.bind(maintenanceController))
-  app.delete('/maintenances/:id', maintenanceController.delete.bind(maintenanceController))
-  app.get('/vehicles/:vehicleId/maintenances', maintenanceController.findByVehicle.bind(maintenanceController))
-  app.get('/mechanics/:mechanicId/maintenances', maintenanceController.findByMechanic.bind(maintenanceController))
+  // MAINTENANCES
+  app.get('/maintenance', {
+    schema: {
+      description: 'Listar manutenções',
+      tags: ['Manutenções'],
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: authMiddleware
+  }, maintenanceController.getAll.bind(maintenanceController))
 
-  // Reminder routes
-  app.post('/reminders', reminderController.create.bind(reminderController))
-  app.get('/reminders', reminderController.findAll.bind(reminderController))
-  app.get('/reminders/:id', reminderController.findById.bind(reminderController))
-  app.put('/reminders/:id', reminderController.update.bind(reminderController))
-  app.patch('/reminders/:id/complete', reminderController.complete.bind(reminderController))
-  app.delete('/reminders/:id', reminderController.delete.bind(reminderController))
+  app.post('/maintenance', {
+    schema: {
+      description: 'Criar nova manutenção',
+      tags: ['Manutenções'],
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: authMiddleware
+  }, maintenanceController.create.bind(maintenanceController))
 
-  // Smart reminder routes
-  app.post('/reminders/smart', reminderController.createSmartReminder.bind(reminderController))
-  app.get('/reminders/upcoming', reminderController.getUpcomingReminders.bind(reminderController))
-  app.get('/reminders/mileage-based', reminderController.getMileageBasedReminders.bind(reminderController))
-  app.post('/reminders/recurring', reminderController.setupRecurringReminder.bind(reminderController))
-  app.put('/vehicles/:vehicleId/mileage', reminderController.updateVehicleMileage.bind(reminderController))
+  // REMINDERS
+  app.get('/reminders', {
+    schema: {
+      description: 'Listar lembretes',
+      tags: ['Lembretes'],
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: authMiddleware
+  }, reminderController.getAll.bind(reminderController))
 
-  // Expense routes
-  app.post('/expenses', expenseController.create.bind(expenseController))
-  app.get('/expenses', expenseController.findAll.bind(expenseController))
-  app.get('/expenses/:id', expenseController.findById.bind(expenseController))
-  app.put('/expenses/:id', expenseController.update.bind(expenseController))
-  app.delete('/expenses/:id', expenseController.delete.bind(expenseController))
+  app.post('/reminders', {
+    schema: {
+      description: 'Criar novo lembrete',
+      tags: ['Lembretes'],
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: authMiddleware
+  }, reminderController.create.bind(reminderController))
 
-  // Notification routes
-  app.get('/notifications', NotificationController.getUserNotifications)
-  app.patch('/notifications/:notificationId/read', NotificationController.markAsRead)
-  app.patch('/notifications/read-all', NotificationController.markAllAsRead)
-  app.delete('/notifications/:notificationId', NotificationController.deleteNotification)
-  app.get('/notifications/unread-count', NotificationController.getUnreadCount)
-  app.post('/notifications/push-subscription', NotificationController.savePushSubscription)
-  app.post('/notifications/test-push', NotificationController.testPushNotification)
+  app.patch('/reminders/:id/complete', {
+    schema: {
+      description: 'Marcar lembrete como concluído',
+      tags: ['Lembretes'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, reminderController.complete.bind(reminderController))
 
-  // Report and prediction routes
-  app.get('/reports/expenses', ReportController.generateExpenseReport)
-  app.post('/predictions', ReportController.generatePrediction)
+  // EXPENSES
+  app.get('/expenses', {
+    schema: {
+      description: 'Listar despesas',
+      tags: ['Despesas'],
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: authMiddleware
+  }, expenseController.getAll.bind(expenseController))
 
-  // Dashboard routes
-  app.get('/dashboard/stats', async (request, reply) => {
-    try {
-      const userId = request.user.id
-      const vehicles = await vehicleController.findAll(request, reply)
-      // This is a simplified version - you might want to create a dedicated dashboard controller
-      return { vehicles: [], maintenances: [], reminders: [] }
-    } catch (error) {
-      return reply.status(500).send({ message: 'Error fetching dashboard data' })
-    }
-  })
+  app.post('/expenses', {
+    schema: {
+      description: 'Criar nova despesa',
+      tags: ['Despesas'],
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: authMiddleware
+  }, expenseController.create.bind(expenseController))
+
+  // NOTIFICATIONS
+  app.register(notificationRoutes, { prefix: '/notifications' })
 } 

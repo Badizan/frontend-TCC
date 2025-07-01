@@ -1,17 +1,45 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AutoManutenção - Gestão de Manutenção Preventiva</title>
-    <meta name="description" content="Aplicativo para gestão de manutenção preventiva de veículos" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoManutenção - Gestão de Manutenção Preventiva</title>
+  <meta name="description" content="Aplicativo para gestão de manutenção preventiva de veículos" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Script para remover service workers ANTES de qualquer coisa -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        console.log('🧹 Removendo', registrations.length, 'service workers...');
+        for (let registration of registrations) {
+          console.log('🗑️ Removendo SW:', registration.scope);
+          registration.unregister();
+        }
+      });
+
+      // Limpar cache também
+      if ('caches' in window) {
+        caches.keys().then(function (cacheNames) {
+          return Promise.all(
+            cacheNames.map(function (cacheName) {
+              console.log('🗑️ Removendo cache:', cacheName);
+              return caches.delete(cacheName);
+            })
+          );
+        });
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../store';
 import { TrendingUp, DollarSign, Calendar, FileText, Download, Filter } from 'lucide-react';
-import ExpenseChart from '../components/dashboard/ExpenseChart';
+import { ExpenseChart } from '../components/dashboard/ExpenseChart';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-const ReportsPage: React.FC = () => {
+export const ReportsPage: React.FC = () => {
   const { 
     vehicles, 
     maintenanceServices, 
@@ -252,75 +252,55 @@ const ReportsPage: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-blue-50 rounded-lg p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <DollarSign className="h-8 w-8 text-blue-600" />
+            <div className="p-3 bg-blue-100 rounded-full">
+              <DollarSign className="h-6 w-6 text-blue-600" />
             </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-blue-900 truncate">
-                  Gastos Totais
-                </dt>
-                <dd className="text-lg font-medium text-blue-900">
-                  R$ {stats.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </dd>
-              </dl>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Gastos Totais</p>
+              <p className="text-lg font-semibold text-gray-900">
+                R$ {stats.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-green-50 rounded-lg p-6">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <TrendingUp className="h-8 w-8 text-green-600" />
+            <div className="p-3 bg-green-100 rounded-full">
+              <TrendingUp className="h-6 w-6 text-green-600" />
             </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-green-900 truncate">
-                  Média por Despesa
-                </dt>
-                <dd className="text-lg font-medium text-green-900">
-                  R$ {stats.averageExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </dd>
-              </dl>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Média por Despesa</p>
+              <p className="text-lg font-semibold text-gray-900">
+                R$ {stats.averageExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-purple-50 rounded-lg p-6">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <FileText className="h-8 w-8 text-purple-600" />
+            <div className="p-3 bg-yellow-100 rounded-full">
+              <FileText className="h-6 w-6 text-yellow-600" />
             </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-purple-900 truncate">
-                  Manutenções
-                </dt>
-                <dd className="text-lg font-medium text-purple-900">
-                  {stats.totalMaintenances}
-                </dd>
-              </dl>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Total de Manutenções</p>
+              <p className="text-lg font-semibold text-gray-900">{stats.totalMaintenances}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-orange-50 rounded-lg p-6">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <Calendar className="h-8 w-8 text-orange-600" />
+            <div className="p-3 bg-purple-100 rounded-full">
+              <Calendar className="h-6 w-6 text-purple-600" />
             </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-orange-900 truncate">
-                  Despesas Registradas
-                </dt>
-                <dd className="text-lg font-medium text-orange-900">
-                  {filteredExpenses.length}
-                </dd>
-              </dl>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Despesas Registradas</p>
+              <p className="text-lg font-semibold text-gray-900">{filteredExpenses.length}</p>
             </div>
           </div>
         </div>
@@ -328,103 +308,55 @@ const ReportsPage: React.FC = () => {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Expenses Chart */}
-        <div className="card">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Gastos Mensais</h2>
-          {monthlyData.length > 0 ? (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Gastos por Mês</h3>
+          <div className="h-64">
             <ExpenseChart data={monthlyData} />
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Nenhum dado disponível para o período selecionado</p>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Expenses by Category */}
-        <div className="card">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Gastos por Categoria</h2>
-          {Object.keys(stats.expensesByCategory).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(stats.expensesByCategory).map(([category, amount]) => {
-                const percentage = (amount / stats.totalExpenses) * 100;
-                return (
-                  <div key={category} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${getCategoryColor(category)}`}></div>
-                      <span className="text-sm font-medium text-gray-700">
-                        {formatCategory(category)}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">{percentage.toFixed(1)}%</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Nenhuma despesa encontrada</p>
-            </div>
-          )}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Distribuição por Categoria</h3>
+          <div className="space-y-4">
+            {Object.entries(stats.expensesByCategory).map(([category, amount]) => (
+              <div key={category} className="relative">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-gray-700">
+                    {formatCategory(category)}
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">
+                    R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`${getCategoryColor(category)} h-2 rounded-full`}
+                    style={{
+                      width: `${(amount / stats.totalExpenses) * 100}%`
+                    }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Maintenance Analysis */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Manutenções por Tipo</h2>
-          {Object.keys(stats.maintenancesByType).length > 0 ? (
-            <div className="space-y-4">
-              {Object.entries(stats.maintenancesByType).map(([type, count]) => (
-                <div key={type} className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">
-                    {formatMaintenanceType(type)}
-                  </span>
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                    {count} {count === 1 ? 'serviço' : 'serviços'}
-                  </span>
-                </div>
-              ))}
+      {/* Maintenance Types */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Tipos de Manutenção</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Object.entries(stats.maintenancesByType).map(([type, count]) => (
+            <div key={type} className="bg-gray-50 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700">{formatMaintenanceType(type)}</h4>
+              <p className="text-2xl font-semibold text-gray-900 mt-2">{count}</p>
+              <p className="text-sm text-gray-500 mt-1">
+                {((count / stats.totalMaintenances) * 100).toFixed(1)}% do total
+              </p>
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Nenhuma manutenção encontrada</p>
-            </div>
-          )}
-        </div>
-
-        <div className="card">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Resumo do Período</h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-2 border-b border-gray-100">
-              <span className="text-sm text-gray-600">Total de despesas</span>
-              <span className="font-medium">
-                R$ {stats.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-gray-100">
-              <span className="text-sm text-gray-600">Número de transações</span>
-              <span className="font-medium">{filteredExpenses.length}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-gray-100">
-              <span className="text-sm text-gray-600">Manutenções realizadas</span>
-              <span className="font-medium">{stats.totalMaintenances}</span>
-            </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-gray-600">Veículos analisados</span>
-              <span className="font-medium">
-                {selectedVehicle === 'all' ? vehicles.length : 1}
-              </span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
   );
 };
-
-export default ReportsPage; 

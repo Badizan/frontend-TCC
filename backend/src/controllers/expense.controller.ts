@@ -1,9 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { BaseController } from './base.controller';
 import { ExpenseService } from '../services/expense.service';
+import { VehicleService } from '../services/vehicle.service';
 import { z } from 'zod';
 
 const expenseService = new ExpenseService();
+const vehicleService = new VehicleService();
 
 const createExpenseSchema = z.object({
     vehicleId: z.string().uuid('Invalid vehicle ID'),
@@ -23,7 +25,18 @@ const updateExpenseSchema = z.object({
 export class ExpenseController extends BaseController {
     async create(request: FastifyRequest, reply: FastifyReply) {
         try {
+            if (!request.user) {
+                return reply.status(401).send({ message: 'User not authenticated' });
+            }
+
             const data = createExpenseSchema.parse(request.body);
+
+            // Verificar se o veículo pertence ao usuário
+            const vehicle = await vehicleService.findById(data.vehicleId);
+            if (!vehicle || vehicle.ownerId !== request.user.id) {
+                return reply.status(403).send({ message: 'Access denied to this vehicle' });
+            }
+
             const expense = await expenseService.create(data);
             return this.sendResponse(reply, expense, 201);
         } catch (error) {
@@ -31,8 +44,12 @@ export class ExpenseController extends BaseController {
         }
     }
 
-    async findAll(request: FastifyRequest, reply: FastifyReply) {
+    async getAll(request: FastifyRequest, reply: FastifyReply) {
         try {
+            if (!request.user) {
+                return reply.status(401).send({ message: 'User not authenticated' });
+            }
+
             const { vehicleId, category, startDate, endDate } = request.query as {
                 vehicleId?: string;
                 category?: string;
@@ -40,8 +57,23 @@ export class ExpenseController extends BaseController {
                 endDate?: string;
             };
 
+            // Filtrar apenas pelos veículos do usuário
+            const userVehicles = await vehicleService.findAll(request.user.id);
+            const userVehicleIds = userVehicles.map(v => v.id);
+
             const filters: any = {};
-            if (vehicleId) filters.vehicleId = vehicleId;
+
+            // Se vehicleId foi especificado, verificar se pertence ao usuário
+            if (vehicleId) {
+                if (!userVehicleIds.includes(vehicleId)) {
+                    return reply.status(403).send({ message: 'Access denied to this vehicle' });
+                }
+                filters.vehicleId = vehicleId;
+            } else {
+                // Se não especificou veículo, buscar despesas de todos os veículos do usuário
+                filters.vehicleIds = userVehicleIds;
+            }
+
             if (category) filters.category = category;
             if (startDate) filters.startDate = new Date(startDate);
             if (endDate) filters.endDate = new Date(endDate);
@@ -55,11 +87,21 @@ export class ExpenseController extends BaseController {
 
     async findById(request: FastifyRequest, reply: FastifyReply) {
         try {
+            if (!request.user) {
+                return reply.status(401).send({ message: 'User not authenticated' });
+            }
+
             const { id } = request.params as { id: string };
             const expense = await expenseService.findById(id);
 
             if (!expense) {
                 return reply.status(404).send({ message: 'Expense not found' });
+            }
+
+            // Verificar se a despesa pertence a um veículo do usuário
+            const vehicle = await vehicleService.findById(expense.vehicleId);
+            if (!vehicle || vehicle.ownerId !== request.user.id) {
+                return reply.status(403).send({ message: 'Access denied to this expense' });
             }
 
             return this.sendResponse(reply, expense);
@@ -70,11 +112,26 @@ export class ExpenseController extends BaseController {
 
     async update(request: FastifyRequest, reply: FastifyReply) {
         try {
+            if (!request.user) {
+                return reply.status(401).send({ message: 'User not authenticated' });
+            }
+
             const { id } = request.params as { id: string };
             const data = updateExpenseSchema.parse(request.body);
 
-            const expense = await expenseService.update(id, data);
-            return this.sendResponse(reply, expense);
+            // Verificar se a despesa existe e pertence ao usuário
+            const expense = await expenseService.findById(id);
+            if (!expense) {
+                return reply.status(404).send({ message: 'Expense not found' });
+            }
+
+            const vehicle = await vehicleService.findById(expense.vehicleId);
+            if (!vehicle || vehicle.ownerId !== request.user.id) {
+                return reply.status(403).send({ message: 'Access denied to this expense' });
+            }
+
+            const updatedExpense = await expenseService.update(id, data);
+            return this.sendResponse(reply, updatedExpense);
         } catch (error) {
             return this.sendError(reply, error as Error);
         }
@@ -82,7 +139,23 @@ export class ExpenseController extends BaseController {
 
     async delete(request: FastifyRequest, reply: FastifyReply) {
         try {
+            if (!request.user) {
+                return reply.status(401).send({ message: 'User not authenticated' });
+            }
+
             const { id } = request.params as { id: string };
+
+            // Verificar se a despesa existe e pertence ao usuário
+            const expense = await expenseService.findById(id);
+            if (!expense) {
+                return reply.status(404).send({ message: 'Expense not found' });
+            }
+
+            const vehicle = await vehicleService.findById(expense.vehicleId);
+            if (!vehicle || vehicle.ownerId !== request.user.id) {
+                return reply.status(403).send({ message: 'Access denied to this expense' });
+            }
+
             await expenseService.delete(id);
             return this.sendResponse(reply, { message: 'Expense deleted successfully' });
         } catch (error) {

@@ -1,295 +1,401 @@
-const API_BASE_URL = 'http://localhost:3333'
+import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
+import { Vehicle, MaintenanceService, MaintenanceReminder, Expense } from '../types';
 
-class ApiService {
-    private token: string | null = null
+// Configurações da API
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+export class ApiService {
+    private api: AxiosInstance;
+    private preventRedirect = false;
 
     constructor() {
-        this.token = localStorage.getItem('auth_token')
+        this.api = axios.create({
+            baseURL: API_BASE_URL,
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        this.setupInterceptors();
     }
 
-    setToken(token: string) {
-        this.token = token
-        localStorage.setItem('auth_token', token)
+    private setupInterceptors(): void {
+        // Request interceptor para adicionar token
+        this.api.interceptors.request.use(
+            (config) => {
+                const token = localStorage.getItem('auth_token');
+                if (token) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                }
+                console.log('🌐 API Request:', config.method?.toUpperCase(), config.url);
+                return config;
+            },
+            (error) => {
+                console.error('❌ Request error:', error);
+                return Promise.reject(error);
+            }
+        );
+
+        // Response interceptor para tratar erros
+        this.api.interceptors.response.use(
+            (response: AxiosResponse) => {
+                console.log('✅ API Response:', response.status, response.config.url);
+                return response;
+            },
+            (error: AxiosError) => {
+                console.error('❌ API Error:', error.response?.status, error.config?.url);
+
+                if (error.response?.status === 401 && !this.preventRedirect) {
+                    console.log('🚪 Token inválido, limpando autenticação');
+                    this.clearToken();
+                    // Não redireciona automaticamente - deixa isso para os componentes
+                }
+
+                return Promise.reject(error);
+            }
+        );
     }
 
-    clearToken() {
-        this.token = null
-        localStorage.removeItem('auth_token')
+    // Métodos de token
+    setToken(token: string): void {
+        localStorage.setItem('auth_token', token);
+        console.log('✅ Token salvo');
     }
 
-    private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-        const url = `${API_BASE_URL}${endpoint}`
+    clearToken(): void {
+        localStorage.removeItem('auth_token');
 
-        const headers: Record<string, string> = {
-            ...(this.token && { Authorization: `Bearer ${this.token}` }),
-            ...options.headers,
-        }
+        // Limpar headers de autorização da instância
+        delete this.api.defaults.headers.Authorization;
 
-        // Only set Content-Type if there's a body
-        if (options.body) {
-            headers['Content-Type'] = 'application/json'
-        }
+        // Limpar qualquer cache do axios
+        this.api.defaults.cache = false;
 
-        const config: RequestInit = {
-            headers,
-            ...options,
-        }
+        console.log('🗑️ Token e cache removidos');
+    }
 
+    // Função para limpar completamente todos os dados e cache
+    clearAllCache(): void {
+        this.clearToken();
+
+        // Recriar a instância do axios para garantir limpeza total
+        this.api = axios.create({
+            baseURL: API_BASE_URL,
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        this.setupInterceptors();
+        console.log('🧹 Cache da API completamente limpo');
+    }
+
+    getToken(): string | null {
+        return localStorage.getItem('auth_token');
+    }
+
+    // Prevenir redirecionamentos automáticos
+    setPreventRedirect(prevent: boolean): void {
+        this.preventRedirect = prevent;
+    }
+
+    // AUTENTICAÇÃO
+    async login(email: string, password: string): Promise<any> {
         try {
-            const response = await fetch(url, config)
+            this.setPreventRedirect(true);
+            console.log('🔑 API: Fazendo login...');
 
-            if (!response.ok) {
-                if (response.status === 401) {
-                    this.clearToken()
-                    window.location.href = '/login'
-                    throw new Error('Authentication required')
-                }
+            const response = await this.api.post('/auth/login', { email, password });
+            const { token, user } = response.data;
 
-                const errorData = await response.json().catch(() => ({}))
+            this.setToken(token);
+            console.log('✅ API: Login bem-sucedido');
 
-                // Handle validation errors
-                if (errorData.message && Array.isArray(errorData.message)) {
-                    const validationErrors = errorData.message.map((err: any) => err.message || err).join(', ')
-                    throw new Error(validationErrors)
-                }
+            return { user, token };
+        } catch (error: any) {
+            console.error('❌ API: Erro no login:', error);
 
-                // Handle Zod validation errors
-                if (typeof errorData.message === 'string' && errorData.message.startsWith('[')) {
-                    try {
-                        const parsedErrors = JSON.parse(errorData.message)
-                        if (Array.isArray(parsedErrors)) {
-                            const validationErrors = parsedErrors.map((err: any) => err.message || err).join(', ')
-                            throw new Error(validationErrors)
-                        }
-                    } catch (parseError) {
-                        // If parsing fails, use the original message
-                    }
-                }
-
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+            // Extrair mensagem específica do backend
+            if (error.response?.data?.message) {
+                const backendMessage = error.response.data.message;
+                console.error('❌ API: Mensagem do backend:', backendMessage);
+                throw new Error(backendMessage);
             }
 
-            return await response.json()
-        } catch (error) {
-            console.error('API request failed:', error)
-            throw error
+            // Fallback para outros tipos de erro
+            throw error;
+        } finally {
+            this.setPreventRedirect(false);
         }
     }
 
-    // Auth methods
-    async login(email: string, password: string) {
-        const response = await this.request<{ user: any; token: string }>('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-        })
+    async register(data: { name: string; email: string; password: string; role: string }): Promise<any> {
+        try {
+            this.setPreventRedirect(true);
+            console.log('📝 API: Fazendo registro...');
 
-        this.setToken(response.token)
-        return response
+            const response = await this.api.post('/auth/register', data);
+
+            // Não salvar token no registro, pois não fazemos login automático
+            console.log('✅ API: Registro bem-sucedido');
+
+            return { success: true, message: 'Conta criada com sucesso!' };
+        } catch (error: any) {
+            console.error('❌ API: Erro no registro:', error);
+
+            // Extrair mensagem específica do backend
+            if (error.response?.data?.message) {
+                const backendMessage = error.response.data.message;
+                console.error('❌ API: Mensagem do backend:', backendMessage);
+                throw new Error(backendMessage);
+            }
+
+            // Fallback para outros tipos de erro
+            throw error;
+        } finally {
+            this.setPreventRedirect(false);
+        }
     }
 
-    async register(data: { name: string; email: string; password: string; role: string }) {
-        const response = await this.request<{ user: any; token: string }>('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        })
-
-        this.setToken(response.token)
-        return response
+    async getProfile(): Promise<any> {
+        try {
+            console.log('👤 API: Buscando perfil...');
+            const response = await this.api.get('/auth/profile', {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
+            console.log('✅ API: Perfil carregado');
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao buscar perfil:', error);
+            throw error;
+        }
     }
 
-    async getProfile() {
-        return this.request<any>('/auth/profile')
+    async forgotPassword(email: string): Promise<any> {
+        try {
+            const response = await this.api.post('/auth/forgot-password', { email });
+            return response.data;
+        } catch (error: any) {
+            throw error;
+        }
     }
 
-    // Vehicle methods
-    async getVehicles(ownerId?: string) {
-        const query = ownerId ? `?ownerId=${ownerId}` : ''
-        return this.request<any[]>(`/vehicles${query}`)
+    async resetPassword(token: string, password: string): Promise<any> {
+        try {
+            const response = await this.api.post('/auth/reset-password', { token, password });
+            return response.data;
+        } catch (error: any) {
+            throw error;
+        }
     }
 
-    async getVehicle(id: string) {
-        return this.request<any>(`/vehicles/${id}`)
+    async validateResetToken(token: string): Promise<any> {
+        try {
+            const response = await this.api.post('/auth/validate-reset-token', { token });
+            return response.data;
+        } catch (error: any) {
+            throw error;
+        }
     }
 
-    async createVehicle(data: {
-        brand: string
-        model: string
-        year: number
-        licensePlate: string
-        type: string
-        ownerId: string
-    }) {
-        console.log('🌐 API: Criando veículo:', data);
-        const result = await this.request<any>('/vehicles', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-        console.log('🌐 API: Veículo criado:', result);
-        return result;
+    // VEÍCULOS
+    async getVehicles(): Promise<Vehicle[]> {
+        try {
+            const response = await this.api.get('/vehicles', {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao buscar veículos:', error);
+            throw error;
+        }
     }
 
-    async updateVehicle(id: string, data: Partial<{
-        brand: string
-        model: string
-        year: number
-        licensePlate: string
-        type: string
-    }>) {
-        return this.request<any>(`/vehicles/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        })
+    async getVehicle(id: string): Promise<Vehicle> {
+        try {
+            const response = await this.api.get(`/vehicles/${id}`);
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao buscar veículo:', error);
+            throw error;
+        }
     }
 
-    async deleteVehicle(id: string) {
-        return this.request<any>(`/vehicles/${id}`, {
-            method: 'DELETE',
-        })
+    async createVehicle(vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>): Promise<Vehicle> {
+        try {
+            console.log('🚗 API: Criando veículo:', vehicle);
+            const response = await this.api.post('/vehicles', vehicle);
+            console.log('✅ API: Veículo criado:', response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao criar veículo:', error);
+            throw error;
+        }
     }
 
-    // Maintenance methods
-    async getMaintenances(filters?: {
-        vehicleId?: string
-        mechanicId?: string
-        status?: string
-        type?: string
-    }) {
-        const query = new URLSearchParams()
-        if (filters?.vehicleId) query.append('vehicleId', filters.vehicleId)
-        if (filters?.mechanicId) query.append('mechanicId', filters.mechanicId)
-        if (filters?.status) query.append('status', filters.status)
-        if (filters?.type) query.append('type', filters.type)
-
-        const queryString = query.toString()
-        return this.request<any[]>(`/maintenances${queryString ? `?${queryString}` : ''}`)
+    async updateVehicle(id: string, vehicle: Partial<Vehicle>): Promise<Vehicle> {
+        try {
+            const response = await this.api.put(`/vehicles/${id}`, vehicle);
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao atualizar veículo:', error);
+            throw error;
+        }
     }
 
-    async getMaintenance(id: string) {
-        return this.request<any>(`/maintenances/${id}`)
+    async deleteVehicle(id: string): Promise<void> {
+        try {
+            await this.api.delete(`/vehicles/${id}`);
+        } catch (error: any) {
+            console.error('Erro ao deletar veículo:', error);
+            throw error;
+        }
     }
 
-    async createMaintenance(data: {
-        vehicleId: string
-        mechanicId: string
-        type: string
-        description: string
-        scheduledDate: string
-        cost?: number
-        notes?: string
-    }) {
-        return this.request<any>('/maintenances', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        })
+    // MANUTENÇÕES
+    async getMaintenances(filters?: { vehicleId?: string }): Promise<MaintenanceService[]> {
+        try {
+            const params = new URLSearchParams();
+            if (filters?.vehicleId) {
+                params.append('vehicleId', filters.vehicleId);
+            }
+
+            const response = await this.api.get(`/maintenances?${params.toString()}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao buscar manutenções:', error);
+            throw error;
+        }
     }
 
-    async updateMaintenance(id: string, data: any) {
-        return this.request<any>(`/maintenances/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        })
+    async createMaintenance(maintenance: Omit<MaintenanceService, 'id' | 'createdAt' | 'updatedAt'>): Promise<MaintenanceService> {
+        try {
+            const response = await this.api.post('/maintenance', maintenance);
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao criar manutenção:', error);
+            throw error;
+        }
     }
 
-    async deleteMaintenance(id: string) {
-        return this.request<any>(`/maintenances/${id}`, {
-            method: 'DELETE',
-        })
+    // LEMBRETES
+    async getReminders(filters?: { vehicleId?: string }): Promise<MaintenanceReminder[]> {
+        try {
+            const params = new URLSearchParams();
+            if (filters?.vehicleId) {
+                params.append('vehicleId', filters.vehicleId);
+            }
+
+            const response = await this.api.get(`/reminders?${params.toString()}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao buscar lembretes:', error);
+            throw error;
+        }
     }
 
-    // Reminder methods
-    async getReminders(filters?: { vehicleId?: string; completed?: boolean }) {
-        const query = new URLSearchParams()
-        if (filters?.vehicleId) query.append('vehicleId', filters.vehicleId)
-        if (typeof filters?.completed === 'boolean') query.append('completed', String(filters.completed))
-
-        const queryString = query.toString()
-        return this.request<any[]>(`/reminders${queryString ? `?${queryString}` : ''}`)
+    async createReminder(reminder: Omit<MaintenanceReminder, 'id' | 'createdAt' | 'updatedAt'>): Promise<MaintenanceReminder> {
+        try {
+            const response = await this.api.post('/reminders', reminder);
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao criar lembrete:', error);
+            throw error;
+        }
     }
 
-    async getReminder(id: string) {
-        return this.request<any>(`/reminders/${id}`)
+    async completeReminder(id: string): Promise<void> {
+        try {
+            await this.api.patch(`/reminders/${id}/complete`);
+        } catch (error: any) {
+            console.error('Erro ao completar lembrete:', error);
+            throw error;
+        }
     }
 
-    async createReminder(data: {
-        vehicleId: string
-        description: string
-        dueDate: string
-    }) {
-        return this.request<any>('/reminders', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        })
+    // GASTOS
+    async getExpenses(filters?: { vehicleId?: string }): Promise<Expense[]> {
+        try {
+            const params = new URLSearchParams();
+            if (filters?.vehicleId) {
+                params.append('vehicleId', filters.vehicleId);
+            }
+
+            const response = await this.api.get(`/expenses?${params.toString()}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao buscar despesas:', error);
+            throw error;
+        }
     }
 
-    async updateReminder(id: string, data: any) {
-        return this.request<any>(`/reminders/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        })
+    async createExpense(expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>): Promise<Expense> {
+        try {
+            const response = await this.api.post('/expenses', expense);
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao criar gasto:', error);
+            throw error;
+        }
     }
 
-    async deleteReminder(id: string) {
-        return this.request<any>(`/reminders/${id}`, {
-            method: 'DELETE',
-        })
+    // NOTIFICAÇÕES
+    async getNotifications(): Promise<any[]> {
+        try {
+            const response = await this.api.get('/notifications');
+            return response.data;
+        } catch (error: any) {
+            console.error('Erro ao buscar notificações:', error);
+            throw error;
+        }
     }
 
-    async completeReminder(id: string) {
-        console.log('🌐 API: Completando lembrete:', id);
-        const result = await this.request<any>(`/reminders/${id}/complete`, {
-            method: 'PATCH',
-        });
-        console.log('🌐 API: Resposta do servidor:', result);
-        return result;
+    async markNotificationAsRead(id: string): Promise<void> {
+        try {
+            await this.api.patch(`/notifications/${id}/read`);
+        } catch (error: any) {
+            console.error('Erro ao marcar notificação como lida:', error);
+            throw error;
+        }
     }
 
-    // Expense methods
-    async getExpenses(filters?: {
-        vehicleId?: string
-        category?: string
-        startDate?: string
-        endDate?: string
-    }) {
-        const query = new URLSearchParams()
-        if (filters?.vehicleId) query.append('vehicleId', filters.vehicleId)
-        if (filters?.category) query.append('category', filters.category)
-        if (filters?.startDate) query.append('startDate', filters.startDate)
-        if (filters?.endDate) query.append('endDate', filters.endDate)
-
-        const queryString = query.toString()
-        return this.request<any[]>(`/expenses${queryString ? `?${queryString}` : ''}`)
-    }
-
-    async getExpense(id: string) {
-        return this.request<any>(`/expenses/${id}`)
-    }
-
-    async createExpense(data: {
-        vehicleId: string
-        description: string
-        category: string
-        amount: number
-        date: string
-    }) {
-        return this.request<any>('/expenses', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        })
-    }
-
-    async updateExpense(id: string, data: any) {
-        return this.request<any>(`/expenses/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        })
-    }
-
-    async deleteExpense(id: string) {
-        return this.request<any>(`/expenses/${id}`, {
-            method: 'DELETE',
-        })
+    async markAllNotificationsAsRead(): Promise<void> {
+        try {
+            await this.api.patch('/notifications/read-all');
+        } catch (error: any) {
+            console.error('Erro ao marcar todas notificações como lidas:', error);
+            throw error;
+        }
     }
 }
 
-export const apiService = new ApiService()
-export default apiService 
+// Export a singleton instance
+export const api = new ApiService();

@@ -1,157 +1,160 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { NotificationService } from '../services/notification.service';
 import { BaseController } from './base.controller';
+import { NotificationService } from '../services/notification.service';
+import { EmailService } from '../services/email.service';
 
-const notificationService = new NotificationService();
+// Removido AuthenticatedRequest - usando FastifyRequest diretamente
 
 export class NotificationController extends BaseController {
-  // Buscar notificações do usuário
-  static async getUserNotifications(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { id: userId } = request.user as any;
-      const { page = 1, limit = 20, unreadOnly = false } = request.query as any;
+  private notificationService: NotificationService;
+  private emailService: EmailService;
 
-      const result = await notificationService.getUserNotifications(userId, {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        unreadOnly: unreadOnly === 'true'
-      });
-
-      return reply.send({
-        success: true,
-        data: result
-      });
-    } catch (error) {
-      return this.handleError(reply, error, 'Erro ao buscar notificações');
-    }
+  constructor() {
+    super();
+    this.notificationService = new NotificationService();
+    this.emailService = new EmailService();
   }
+
+  // Obter todas as notificações do usuário
+  public getNotifications = async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
+
+      const { page = 1, limit = 10, unreadOnly = false, category, channel } = req.query as any;
+
+      const notifications = await this.notificationService.getUserNotifications(userId, {
+        page: Number(page),
+        limit: Number(limit),
+        unreadOnly: Boolean(unreadOnly),
+        category: category as string,
+        channel: channel as 'IN_APP' | 'EMAIL'
+      });
+
+      return this.sendResponse(reply, notifications);
+    } catch (error) {
+      return this.sendError(reply, error as Error);
+    }
+  };
 
   // Marcar notificação como lida
-  static async markAsRead(request: FastifyRequest, reply: FastifyReply) {
+  public markAsRead = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id: userId } = request.user as any;
-      const { notificationId } = request.params as any;
+      const userId = (req as any).user?.id;
+      const { notificationId } = req.params as any;
 
-      await notificationService.markAsRead(notificationId, userId);
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
 
-      return reply.send({
-        success: true,
-        message: 'Notificação marcada como lida'
-      });
+      await this.notificationService.markAsRead(notificationId, userId);
+      return this.sendResponse(reply, { message: 'Notification marked as read' });
     } catch (error) {
-      return this.handleError(reply, error, 'Erro ao marcar notificação como lida');
+      return this.sendError(reply, error as Error);
     }
-  }
+  };
 
   // Marcar todas as notificações como lidas
-  static async markAllAsRead(request: FastifyRequest, reply: FastifyReply) {
+  public markAllAsRead = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id: userId } = request.user as any;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
 
-      await notificationService.markAllAsRead(userId);
-
-      return reply.send({
-        success: true,
-        message: 'Todas as notificações marcadas como lidas'
-      });
+      await this.notificationService.markAllAsRead(userId);
+      return this.sendResponse(reply, { message: 'All notifications marked as read' });
     } catch (error) {
-      return this.handleError(reply, error, 'Erro ao marcar todas as notificações como lidas');
+      return this.sendError(reply, error as Error);
     }
-  }
+  };
 
-  // Deletar notificação
-  static async deleteNotification(request: FastifyRequest, reply: FastifyReply) {
+  // Excluir uma notificação
+  public deleteNotification = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id: userId } = request.user as any;
-      const { notificationId } = request.params as any;
+      const userId = (req as any).user?.id;
+      const { notificationId } = req.params as any;
 
-      await notificationService.deleteNotification(notificationId, userId);
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
 
-      return reply.send({
-        success: true,
-        message: 'Notificação removida'
-      });
+      await this.notificationService.deleteNotification(notificationId, userId);
+      return this.sendResponse(reply, { message: 'Notification deleted' });
     } catch (error) {
-      return this.handleError(reply, error, 'Erro ao remover notificação');
+      return this.sendError(reply, error as Error);
     }
-  }
+  };
 
-  // Contar notificações não lidas
-  static async getUnreadCount(request: FastifyRequest, reply: FastifyReply) {
+  // Obter configurações de notificação
+  public getNotificationSettings = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id: userId } = request.user as any;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
 
-      const count = await notificationService.getUnreadCount(userId);
-
-      return reply.send({
-        success: true,
-        data: { unreadCount: count }
-      });
+      const settings = await this.notificationService.getNotificationSettings(userId);
+      return this.sendResponse(reply, settings);
     } catch (error) {
-      return this.handleError(reply, error, 'Erro ao contar notificações não lidas');
+      return this.sendError(reply, error as Error);
     }
-  }
+  };
 
-  // Salvar subscription de push notifications
-  static async savePushSubscription(request: FastifyRequest, reply: FastifyReply) {
+  // Atualizar configurações de notificação
+  public updateNotificationSettings = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id: userId } = request.user as any;
-      const { subscription } = request.body as any;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
 
-      await notificationService.savePushSubscription(userId, subscription);
-
-      return reply.send({
-        success: true,
-        message: 'Subscription salva com sucesso'
-      });
+      const settings = req.body as any;
+      await this.notificationService.updateNotificationSettings(userId, settings);
+      return this.sendResponse(reply, { message: 'Notification settings updated' });
     } catch (error) {
-      return this.handleError(reply, error, 'Erro ao salvar subscription');
+      return this.sendError(reply, error as Error);
     }
-  }
+  };
 
-  // Criar notificação manual (para admins)
-  static async createNotification(request: FastifyRequest, reply: FastifyReply) {
+  // Enviar email de teste
+  public sendTestEmail = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { userId, type, title, message, channel, scheduledFor } = request.body as any;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
 
-      const notification = await notificationService.createNotification({
-        userId,
-        type,
-        title,
-        message,
-        channel,
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined
-      });
+      const user = await this.notificationService.getUserById(userId);
+      if (!user || !user.email) {
+        return reply.status(400).send({ message: 'User email not found' });
+      }
 
-      return reply.send({
-        success: true,
-        data: notification,
-        message: 'Notificação criada com sucesso'
-      });
+      await this.emailService.sendTestEmail(user.email);
+      return this.sendResponse(reply, { message: 'Test email sent successfully' });
     } catch (error) {
-      return this.handleError(reply, error, 'Erro ao criar notificação');
+      return this.sendError(reply, error as Error);
     }
-  }
+  };
 
-  // Testar notificação push
-  static async testPushNotification(request: FastifyRequest, reply: FastifyReply) {
+  // Obter notificações não lidas
+  public getUnreadNotifications = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id: userId } = request.user as any;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
 
-      await notificationService.createNotification({
-        userId,
-        type: 'SYSTEM_UPDATE',
-        title: 'Notificação de Teste',
-        message: 'Esta é uma notificação de teste para verificar se o sistema está funcionando.',
-        channel: 'PUSH'
+      const notifications = await this.notificationService.getUserNotifications(userId, {
+        page: 1,
+        limit: 100,
+        unreadOnly: true
       });
-
-      return reply.send({
-        success: true,
-        message: 'Notificação de teste enviada'
-      });
+      return this.sendResponse(reply, notifications);
     } catch (error) {
-      return this.handleError(reply, error, 'Erro ao enviar notificação de teste');
+      return this.sendError(reply, error as Error);
     }
-  }
+  };
 } 

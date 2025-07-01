@@ -22,13 +22,20 @@ export class ExpenseService {
 
     async findAll(filters?: {
         vehicleId?: string
+        vehicleIds?: string[]
         category?: string
         startDate?: Date
         endDate?: Date
     }) {
         const where: any = {}
 
-        if (filters?.vehicleId) where.vehicleId = filters.vehicleId
+        // Filtrar por veículo específico OU lista de veículos
+        if (filters?.vehicleId) {
+            where.vehicleId = filters.vehicleId
+        } else if (filters?.vehicleIds && filters.vehicleIds.length > 0) {
+            where.vehicleId = { in: filters.vehicleIds }
+        }
+
         if (filters?.category) where.category = filters.category
         if (filters?.startDate || filters?.endDate) {
             where.date = {}
