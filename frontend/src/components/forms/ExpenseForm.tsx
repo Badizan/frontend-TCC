@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getLocalDateString, getTodayString, parseLocalDate } from '../../utils/formatters';
 
 interface ExpenseFormProps {
   vehicleId: string;
@@ -17,7 +18,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     vehicleId,
     description: '',
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayString(),
     category: 'FUEL',
     mileage: 0,
   });
@@ -71,7 +72,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
     onSubmit({
       ...formData,
-      date: new Date(formData.date),
+      date: parseLocalDate(formData.date),
     });
   };
 
@@ -155,7 +156,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             value={formData.date}
             onChange={handleChange}
             className={`form-input ${errors.date ? 'border-red-500' : ''}`}
-            max={new Date().toISOString().split('T')[0]}
+            max={getTodayString()}
             required
           />
           {errors.date && (

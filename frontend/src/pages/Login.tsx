@@ -365,18 +365,6 @@ const Login: React.FC = () => {
               </div>
             )}
 
-            {/* Esqueceu a senha */}
-            {isLogin && (
-              <div className="text-right">
-                <a
-                  href="/forgot-password"
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                >
-                  Esqueceu a senha?
-                </a>
-              </div>
-            )}
-
             {/* Mensagem de sucesso do registro */}
             {registrationSuccess && (
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6">
@@ -434,7 +422,7 @@ const Login: React.FC = () => {
         {/* Professional Footer */}
         <div className="mt-8 text-center">
           <p className="text-slate-400 text-sm">
-            © 2024 AutoManutenção. Todos os direitos reservados.
+            © 2025 AutoManutenção. Todos os direitos reservados.
           </p>
           <div className="flex justify-center space-x-6 mt-3">
             <a href="#" className="text-slate-400 hover:text-white text-xs transition-colors">

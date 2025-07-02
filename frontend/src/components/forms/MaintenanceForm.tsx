@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store';
+import { getLocalDateString, getTodayString, parseLocalDate } from '../../utils/formatters';
+
+type MaintenanceType = 'PREVENTIVE' | 'CORRECTIVE' | 'INSPECTION';
 
 interface MaintenanceFormProps {
   vehicleId: string;
@@ -30,7 +33,7 @@ export const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
     mechanicId: user?.id || '',
     type: 'PREVENTIVE',
     description: '',
-    scheduledDate: new Date().toISOString().split('T')[0],
+    scheduledDate: getTodayString(),
     cost: 0,
     notes: '',
   });
@@ -55,7 +58,7 @@ export const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
 
     onSubmit({
       ...formData,
-      scheduledDate: new Date(formData.scheduledDate),
+      scheduledDate: parseLocalDate(formData.scheduledDate),
     });
   };
 
@@ -144,13 +147,24 @@ export const MaintenanceForm: React.FC<MaintenanceFormProps> = ({
         </div>
       </div>
 
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Tipos de Manutenção:</h3>
-        <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>Preventiva:</strong> Manutenções programadas para evitar problemas</li>
-          <li>• <strong>Corretiva:</strong> Reparos necessários devido a falhas ou problemas</li>
-          <li>• <strong>Inspeção:</strong> Verificações e diagnósticos técnicos</li>
-        </ul>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-blue-800 mb-2">Tipos de Manutenção:</h3>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• <strong>Preventiva:</strong> Manutenções programadas para evitar problemas</li>
+            <li>• <strong>Corretiva:</strong> Reparos necessários devido a falhas ou problemas</li>
+            <li>• <strong>Inspeção:</strong> Verificações e diagnósticos técnicos</li>
+          </ul>
+        </div>
+
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-green-800 mb-2">✨ Criação Automática:</h3>
+          <ul className="text-sm text-green-700 space-y-1">
+            <li>• <strong>Lembrete:</strong> Será criado 1 dia antes da manutenção</li>
+            <li>• <strong>Despesa:</strong> Será criada automaticamente se informar custo</li>
+            <li>• <strong>Relatório:</strong> Aparecerá nos relatórios imediatamente</li>
+          </ul>
+        </div>
       </div>
 
       {!user?.id && (

@@ -5,29 +5,54 @@ import { RemindersList } from '../components/dashboard/RemindersList';
 import { ReminderForm } from '../components/forms/ReminderForm';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNotifications } from '../hooks/useNotifications';
 
 const RemindersPage: React.FC = () => {
-  const { maintenanceReminders, vehicles, fetchMaintenanceReminders, fetchVehicles, createMaintenanceReminder, completeReminder } = useAppStore();
+  const { 
+    maintenanceReminders, 
+    vehicles, 
+    fetchMaintenanceReminders, 
+    fetchVehicles, 
+    createMaintenanceReminder, 
+    completeReminder,
+    deleteMaintenanceReminder
+  } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('pending');
-  const [showForm, setShowForm] = useState(false);
-  const [selectedVehicleForForm, setSelectedVehicleForForm] = useState<string>('');
+  
+  const { showToast } = useNotifications();
 
   useEffect(() => {
     fetchMaintenanceReminders();
     fetchVehicles();
   }, [fetchMaintenanceReminders, fetchVehicles]);
 
-  const handleCreateReminder = async (data: any) => {
+
+
+  const handleDeleteReminder = async (reminder: any) => {
+    if (!confirm(`Tem certeza que deseja excluir o lembrete "${reminder.title || reminder.description}"?`)) {
+      return;
+    }
+    
     try {
-      await createMaintenanceReminder(data);
-      setShowForm(false);
-      setSelectedVehicleForForm('');
-      // Recarregar dados após criar
-      fetchMaintenanceReminders();
+      await deleteMaintenanceReminder(reminder.id);
+      
+      showToast(
+        'Lembrete Excluído',
+        'Lembrete foi excluído com sucesso',
+        'reminders',
+        'success'
+      );
+      
     } catch (error) {
-      console.error('Erro ao criar lembrete:', error);
+      console.error('Erro ao excluir lembrete:', error);
+      showToast(
+        'Erro',
+        'Não foi possível excluir o lembrete. Tente novamente.',
+        'system',
+        'error'
+      );
     }
   };
 
@@ -39,9 +64,10 @@ const RemindersPage: React.FC = () => {
     const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesVehicle = selectedVehicle === 'all' || reminder.vehicleId === selectedVehicle;
+    
     const matchesStatus = filterStatus === 'all' || 
-                         (filterStatus === 'pending' && !reminder.isCompleted) ||
-                         (filterStatus === 'completed' && reminder.isCompleted);
+                         (filterStatus === 'pending' && !reminder.completed) ||
+                         (filterStatus === 'completed' && reminder.completed);
     return matchesSearch && matchesVehicle && matchesStatus;
   });
 
@@ -56,15 +82,13 @@ const RemindersPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Lembretes</h1>
-          <p className="text-sm text-gray-600">Gerencie todos os lembretes dos seus veículos</p>
+          <p className="text-sm text-gray-600">Lembretes são criados automaticamente através das manutenções</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Lembrete
-        </button>
+        <div className="bg-green-50 px-4 py-2 rounded-lg">
+          <p className="text-sm text-green-800">
+            ✨ <strong>Criação Automática:</strong> Lembretes são gerados automaticamente 1 dia antes das manutenções agendadas
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -80,7 +104,7 @@ const RemindersPage: React.FC = () => {
                   Pendentes
                 </dt>
                 <dd className="text-lg font-medium text-yellow-900">
-                  {maintenanceReminders.filter(r => !r.isCompleted).length}
+                  {maintenanceReminders.filter(r => !r.completed).length}
                 </dd>
               </dl>
             </div>
@@ -98,7 +122,7 @@ const RemindersPage: React.FC = () => {
                   Concluídos
                 </dt>
                 <dd className="text-lg font-medium text-green-900">
-                  {maintenanceReminders.filter(r => r.isCompleted).length}
+                  {maintenanceReminders.filter(r => r.completed).length}
                 </dd>
               </dl>
             </div>
@@ -170,47 +194,7 @@ const RemindersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Novo Lembrete</h3>
-              <button
-                onClick={() => setShowForm(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="mb-4">
-              <label className="form-label">Selecione o veículo</label>
-              <select
-                className="form-input"
-                value={selectedVehicleForForm}
-                onChange={(e) => setSelectedVehicleForForm(e.target.value)}
-                required
-              >
-                <option value="">Escolha um veículo</option>
-                {vehicles.map(vehicle => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.brand} {vehicle.model} - {vehicle.licensePlate}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedVehicleForForm && (
-              <ReminderForm
-                vehicleId={selectedVehicleForForm}
-                onSubmit={handleCreateReminder}
-                isLoading={false}
-              />
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Results */}
       <div className="card">
@@ -228,6 +212,7 @@ const RemindersPage: React.FC = () => {
         <RemindersList 
           reminders={filteredReminders} 
           onComplete={completeReminder}
+          onDelete={handleDeleteReminder}
           getVehicleName={getVehicleName}
         />
       </div>

@@ -111,10 +111,20 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
       return;
     }
 
-    onSubmit({
-      ...formData,
-      ownerId: user.id
-    });
+    // Para atualização, não enviar ownerId (apenas para criação)
+    const submitData = { ...formData };
+    
+    // Se é uma atualização (tem initialData), remover ownerId
+    if (initialData?.id) {
+      delete submitData.ownerId;
+      console.log('🔄 VehicleForm: Enviando dados de atualização (sem ownerId):', submitData);
+    } else {
+      // Para criação, incluir ownerId
+      submitData.ownerId = user.id;
+      console.log('🆕 VehicleForm: Enviando dados de criação (com ownerId):', submitData);
+    }
+
+    onSubmit(submitData);
   };
 
   const vehicleTypes = [

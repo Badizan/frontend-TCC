@@ -110,12 +110,27 @@ export class AuthService {
       }
 
       const token = jwt.sign(
-        { userId: TEST_USER.id },
+        { 
+          id: TEST_USER.id,
+          email: TEST_USER.email,
+          role: TEST_USER.role
+        },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
 
       console.log('✅ AuthService: Login bem-sucedido (usuário de teste)');
+
+      // Verificar notificações imediatas para o usuário de teste
+      try {
+        const { NotificationService } = await import('./notification.service');
+        const notificationService = new NotificationService();
+        await notificationService.checkImmediateReminders(TEST_USER.id);
+        console.log('🔔 AuthService: Notificações verificadas para usuário de teste');
+      } catch (notificationError) {
+        console.error('❌ AuthService: Erro ao verificar notificações para usuário de teste:', notificationError);
+        // Não falhar o login por causa de erro nas notificações
+      }
 
       return {
         user: {
@@ -147,12 +162,27 @@ export class AuthService {
       }
 
       const token = jwt.sign(
-        { userId: user.id },
+        { 
+          id: user.id,
+          email: user.email,
+          role: user.role
+        },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
 
       console.log('✅ AuthService: Login bem-sucedido:', email);
+
+      // Verificar notificações imediatas para o usuário
+      try {
+        const { NotificationService } = await import('./notification.service');
+        const notificationService = new NotificationService();
+        await notificationService.checkImmediateReminders(user.id);
+        console.log('🔔 AuthService: Notificações verificadas para:', email);
+      } catch (notificationError) {
+        console.error('❌ AuthService: Erro ao verificar notificações:', notificationError);
+        // Não falhar o login por causa de erro nas notificações
+      }
 
       return {
         user: {

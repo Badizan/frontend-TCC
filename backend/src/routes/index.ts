@@ -332,6 +332,21 @@ export async function routes(app: FastifyInstance) {
     preHandler: authMiddleware
   }, maintenanceController.getAll.bind(maintenanceController))
 
+  app.get('/maintenance/:id', {
+    schema: {
+      description: 'Obter detalhes de uma manutenção',
+      tags: ['Manutenções'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, maintenanceController.findById.bind(maintenanceController))
+
   app.post('/maintenance', {
     schema: {
       description: 'Criar nova manutenção',
@@ -340,6 +355,36 @@ export async function routes(app: FastifyInstance) {
     },
     preHandler: authMiddleware
   }, maintenanceController.create.bind(maintenanceController))
+
+  app.put('/maintenance/:id', {
+    schema: {
+      description: 'Atualizar manutenção',
+      tags: ['Manutenções'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, maintenanceController.update.bind(maintenanceController))
+
+  app.delete('/maintenance/:id', {
+    schema: {
+      description: 'Deletar manutenção',
+      tags: ['Manutenções'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, maintenanceController.delete.bind(maintenanceController))
 
   // REMINDERS
   app.get('/reminders', {
@@ -351,6 +396,21 @@ export async function routes(app: FastifyInstance) {
     preHandler: authMiddleware
   }, reminderController.getAll.bind(reminderController))
 
+  app.get('/reminders/:id', {
+    schema: {
+      description: 'Obter detalhes de um lembrete',
+      tags: ['Lembretes'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, reminderController.findById.bind(reminderController))
+
   app.post('/reminders', {
     schema: {
       description: 'Criar novo lembrete',
@@ -359,6 +419,36 @@ export async function routes(app: FastifyInstance) {
     },
     preHandler: authMiddleware
   }, reminderController.create.bind(reminderController))
+
+  app.put('/reminders/:id', {
+    schema: {
+      description: 'Atualizar lembrete',
+      tags: ['Lembretes'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, reminderController.update.bind(reminderController))
+
+  app.delete('/reminders/:id', {
+    schema: {
+      description: 'Deletar lembrete',
+      tags: ['Lembretes'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, reminderController.delete.bind(reminderController))
 
   app.patch('/reminders/:id/complete', {
     schema: {
@@ -385,6 +475,21 @@ export async function routes(app: FastifyInstance) {
     preHandler: authMiddleware
   }, expenseController.getAll.bind(expenseController))
 
+  app.get('/expenses/:id', {
+    schema: {
+      description: 'Obter detalhes de uma despesa',
+      tags: ['Despesas'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, expenseController.findById.bind(expenseController))
+
   app.post('/expenses', {
     schema: {
       description: 'Criar nova despesa',
@@ -393,6 +498,85 @@ export async function routes(app: FastifyInstance) {
     },
     preHandler: authMiddleware
   }, expenseController.create.bind(expenseController))
+
+  app.put('/expenses/:id', {
+    schema: {
+      description: 'Atualizar despesa',
+      tags: ['Despesas'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, expenseController.update.bind(expenseController))
+
+  app.delete('/expenses/:id', {
+    schema: {
+      description: 'Deletar despesa',
+      tags: ['Despesas'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, expenseController.delete.bind(expenseController))
+
+  // REPORTS
+  app.get('/reports/summary', {
+    schema: {
+      description: 'Obter resumo de relatórios',
+      tags: ['Relatórios'],
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        properties: {
+          vehicleId: { type: 'string' },
+          period: { type: 'string', enum: ['last3months', 'last6months', 'last12months'] }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, reportController.getSummaryReport.bind(reportController))
+
+  app.get('/reports/maintenance-analytics', {
+    schema: {
+      description: 'Obter análise de manutenções',
+      tags: ['Relatórios'],
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        properties: {
+          vehicleId: { type: 'string' },
+          period: { type: 'string', enum: ['last3months', 'last6months', 'last12months'] }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, reportController.getMaintenanceAnalytics.bind(reportController))
+
+  app.get('/reports/expenses-by-period', {
+    schema: {
+      description: 'Obter despesas por período',
+      tags: ['Relatórios'],
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        properties: {
+          vehicleId: { type: 'string' },
+          period: { type: 'string', enum: ['last3months', 'last6months', 'last12months'] }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, reportController.getExpensesByPeriod.bind(reportController))
 
   // NOTIFICATIONS
   app.register(notificationRoutes, { prefix: '/notifications' })

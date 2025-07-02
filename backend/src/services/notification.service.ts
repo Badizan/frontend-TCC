@@ -266,4 +266,200 @@ export class NotificationService {
         // Aqui você pode implementar lógica adicional para eventos
         console.log('🔔 Nova notificação criada:', notification);
     }
+
+    async createWelcomeNotifications(userId: string) {
+        try {
+            const welcomeNotifications = [
+                {
+                    userId,
+                    type: 'SYSTEM_UPDATE',
+                    title: 'Bem-vindo ao AutoManutenção!',
+                    message: 'Sistema pronto para uso. Cadastre seus veículos e comece a gerenciar suas manutenções.',
+                    category: 'system',
+                    channel: 'IN_APP' as NotificationChannel
+                },
+                {
+                    userId,
+                    type: 'MAINTENANCE_DUE',
+                    title: 'Dica de Manutenção',
+                    message: 'Lembre-se: manutenções preventivas evitam problemas maiores e economizam dinheiro.',
+                    category: 'maintenance',
+                    channel: 'IN_APP' as NotificationChannel
+                },
+                {
+                    userId,
+                    type: 'EXPENSE_LIMIT',
+                    title: 'Controle Financeiro',
+                    message: 'Registre todas suas despesas para ter controle total dos gastos com veículos.',
+                    category: 'expenses',
+                    channel: 'IN_APP' as NotificationChannel
+                }
+            ];
+
+            for (const notificationData of welcomeNotifications) {
+                await this.createNotification(notificationData);
+            }
+
+            console.log('✅ Notificações de boas-vindas criadas para usuário:', userId);
+        } catch (error) {
+            console.error('❌ Erro ao criar notificações de boas-vindas:', error);
+        }
+    }
+
+    // Verificar e criar notificações imediatas para lembretes próximos
+    async checkImmediateReminders(userId: string) {
+        try {
+            const now = new Date();
+            const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+            // Buscar lembretes próximos do usuário
+            const upcomingReminders = await prisma.reminder.findMany({
+                where: {
+                    vehicle: { ownerId: userId },
+                    completed: false,
+                    OR: [
+                        {
+                            type: { in: ['TIME_BASED', 'HYBRID'] },
+                            dueDate: {
+                                gte: now,
+                                lte: next7Days
+                            }
+                        }
+                    ]
+                },
+                include: {
+                    vehicle: true
+                }
+            });
+
+            for (const reminder of upcomingReminders) {
+                if (reminder.dueDate) {
+                    const daysUntilDue = Math.ceil((reminder.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+                    // Verificar se já não enviamos uma notificação recentemente
+                    const existingNotification = await prisma.notification.findFirst({
+                        where: {
+                            userId,
+                            type: 'REMINDER_DUE',
+                            data: {
+                                path: ['reminderId'],
+                                equals: reminder.id
+                            },
+                            createdAt: {
+                                gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) // Últimas 24h
+                            }
+                        }
+                    });
+
+                    if (!existingNotification) {
+                        let urgencyLevel = 'info';
+                        let title = 'Lembrete Próximo';
+
+                        if (daysUntilDue <= 1) {
+                            urgencyLevel = 'urgent';
+                            title = 'Lembrete URGENTE - Hoje!';
+                        } else if (daysUntilDue <= 3) {
+                            urgencyLevel = 'high';
+                            title = 'Lembrete Importante';
+                        }
+
+                        await this.createNotification({
+                            userId,
+                            type: 'REMINDER_DUE',
+                            title,
+                            message: `${reminder.description} para ${reminder.vehicle.brand} ${reminder.vehicle.model} - ${daysUntilDue === 0 ? 'HOJE' : daysUntilDue === 1 ? 'amanhã' : `em ${daysUntilDue} dias`}`,
+                            data: {
+                                reminderId: reminder.id,
+                                vehicleId: reminder.vehicleId,
+                                daysUntilDue,
+                                urgencyLevel
+                            },
+                            category: 'reminders',
+                            channel: 'IN_APP'
+                        });
+
+                        // Enviar por email se for muito urgente (1 dia ou menos)
+                        if (daysUntilDue <= 1) {
+                            await this.createNotification({
+                                userId,
+                                type: 'REMINDER_DUE',
+                                title: `URGENTE: ${title}`,
+                                message: `${reminder.description} para ${reminder.vehicle.brand} ${reminder.vehicle.model} deve ser realizado ${daysUntilDue === 0 ? 'HOJE' : 'amanhã'}!`,
+                                data: {
+                                    reminderId: reminder.id,
+                                    vehicleId: reminder.vehicleId,
+                                    daysUntilDue,
+                                    urgencyLevel
+                                },
+                                category: 'reminders',
+                                channel: 'EMAIL'
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Verificar manutenções próximas
+            const upcomingMaintenances = await prisma.maintenance.findMany({
+                where: {
+                    vehicle: { ownerId: userId },
+                    status: 'SCHEDULED',
+                    scheduledDate: {
+                        gte: now,
+                        lte: next7Days
+                    }
+                },
+                include: {
+                    vehicle: true
+                }
+            });
+
+            for (const maintenance of upcomingMaintenances) {
+                const daysUntilMaintenance = Math.ceil((maintenance.scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+                // Verificar se já não enviamos uma notificação recentemente
+                const existingNotification = await prisma.notification.findFirst({
+                    where: {
+                        userId,
+                        type: 'MAINTENANCE_DUE',
+                        data: {
+                            path: ['maintenanceId'],
+                            equals: maintenance.id
+                        },
+                        createdAt: {
+                            gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) // Últimas 24h
+                        }
+                    }
+                });
+
+                if (!existingNotification) {
+                    let title = 'Manutenção Próxima';
+
+                    if (daysUntilMaintenance <= 1) {
+                        title = 'Manutenção URGENTE - Hoje!';
+                    } else if (daysUntilMaintenance <= 3) {
+                        title = 'Manutenção Importante';
+                    }
+
+                    await this.createNotification({
+                        userId,
+                        type: 'MAINTENANCE_DUE',
+                        title,
+                        message: `${maintenance.description} para ${maintenance.vehicle.brand} ${maintenance.vehicle.model} - ${daysUntilMaintenance === 0 ? 'HOJE' : daysUntilMaintenance === 1 ? 'amanhã' : `em ${daysUntilMaintenance} dias`}`,
+                        data: {
+                            maintenanceId: maintenance.id,
+                            vehicleId: maintenance.vehicleId,
+                            daysUntilMaintenance
+                        },
+                        category: 'maintenance',
+                        channel: 'IN_APP'
+                    });
+                }
+            }
+
+        } catch (error) {
+            console.error('❌ Erro ao verificar lembretes imediatos:', error);
+        }
+    }
 } 

@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client'
+import { NotificationService } from './notification.service'
 
 const prisma = new PrismaClient()
+const notificationService = new NotificationService()
 
 export class ReminderService {
     async create(data: {
@@ -13,14 +15,41 @@ export class ReminderService {
         intervalMileage?: number
         recurring?: boolean
     }) {
-        return await prisma.reminder.create({
+        const reminder = await prisma.reminder.create({
             data,
             include: {
                 vehicle: {
-                    select: { id: true, brand: true, model: true, licensePlate: true }
+                    select: { id: true, brand: true, model: true, licensePlate: true, ownerId: true }
                 }
             }
         })
+
+        // Criar notificação para o proprietário do veículo
+        try {
+            const dueDateText = data.dueDate ? ` para ${data.dueDate.toLocaleDateString('pt-BR')}` : ''
+            const mileageText = data.dueMileage ? ` aos ${data.dueMileage} km` : ''
+
+            await notificationService.createNotification({
+                userId: reminder.vehicle.ownerId,
+                type: 'REMINDER_CREATED',
+                title: 'Novo Lembrete Criado',
+                message: `Lembrete "${data.description}" criado para o veículo ${reminder.vehicle.brand} ${reminder.vehicle.model} (${reminder.vehicle.licensePlate})${dueDateText}${mileageText}.`,
+                data: {
+                    reminderId: reminder.id,
+                    vehicleId: reminder.vehicleId,
+                    description: data.description,
+                    type: data.type,
+                    dueDate: data.dueDate,
+                    dueMileage: data.dueMileage
+                },
+                category: 'reminders',
+                channel: 'IN_APP'
+            })
+        } catch (error) {
+            console.error('❌ Erro ao criar notificação de lembrete:', error)
+        }
+
+        return reminder
     }
 
     async findAll(filters?: {
@@ -28,26 +57,44 @@ export class ReminderService {
         vehicleIds?: string[]
         completed?: boolean
     }) {
+        console.log('⏰ ReminderService: Buscando lembretes com filtros:', filters);
+
         const where: any = {}
 
         // Filtrar por veículo específico OU lista de veículos
         if (filters?.vehicleId) {
             where.vehicleId = filters.vehicleId
+            console.log('⏰ ReminderService: Filtrando por veículo específico:', filters.vehicleId);
         } else if (filters?.vehicleIds && filters.vehicleIds.length > 0) {
             where.vehicleId = { in: filters.vehicleIds }
+            console.log('⏰ ReminderService: Filtrando por lista de veículos:', filters.vehicleIds.length, 'veículos');
         }
 
         if (typeof filters?.completed === 'boolean') where.completed = filters.completed
 
-        return await prisma.reminder.findMany({
+        const reminders = await prisma.reminder.findMany({
             where,
             include: {
                 vehicle: {
-                    select: { id: true, brand: true, model: true, licensePlate: true }
+                    select: { id: true, brand: true, model: true, licensePlate: true, ownerId: true }
                 }
             },
             orderBy: { dueDate: 'asc' }
-        })
+        });
+
+        // Verificação de segurança: registrar ownerIds únicos
+        const ownerIds = new Set(reminders.map(r => r.vehicle.ownerId));
+        if (ownerIds.size > 1) {
+            console.warn('🚨 ReminderService: MÚLTIPLOS PROPRIETÁRIOS DETECTADOS nos lembretes retornados!', {
+                totalLembretes: reminders.length,
+                proprietariosUnicos: ownerIds.size,
+                proprietarios: Array.from(ownerIds),
+                filtrosUsados: filters
+            });
+        }
+
+        console.log(`✅ ReminderService: ${reminders.length} lembretes encontrados, ${ownerIds.size} proprietário(s) único(s)`);
+        return reminders;
     }
 
     async findById(id: string) {
@@ -150,10 +197,30 @@ export class ReminderService {
             data: { completed: true },
             include: {
                 vehicle: {
-                    select: { id: true, brand: true, model: true, licensePlate: true }
+                    select: { id: true, brand: true, model: true, licensePlate: true, ownerId: true }
                 }
             }
         });
+
+        // Criar notificação de lembrete completado
+        try {
+            await notificationService.createNotification({
+                userId: completedReminder.vehicle.ownerId,
+                type: 'REMINDER_COMPLETED',
+                title: 'Lembrete Concluído',
+                message: `O lembrete "${reminder.description}" foi marcado como concluído para o veículo ${completedReminder.vehicle.brand} ${completedReminder.vehicle.model} (${completedReminder.vehicle.licensePlate}).`,
+                data: {
+                    reminderId: completedReminder.id,
+                    vehicleId: completedReminder.vehicleId,
+                    description: reminder.description,
+                    completedAt: new Date()
+                },
+                category: 'reminders',
+                channel: 'IN_APP'
+            })
+        } catch (error) {
+            console.error('❌ Erro ao criar notificação de lembrete concluído:', error)
+        }
 
         // Se for recorrente, criar próximo lembrete
         if (reminder.recurring) {

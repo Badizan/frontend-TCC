@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { ArrowLeft, Edit, PenTool as Tool, Clock, DollarSign, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, PenTool as Tool, Clock, DollarSign, Trash2 } from 'lucide-react';
 import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline';
 import { RemindersList } from '../components/dashboard/RemindersList';
 import { ExpenseChart } from '../components/dashboard/ExpenseChart';
-import { MaintenanceForm } from '../components/forms/MaintenanceForm';
-import { ReminderForm } from '../components/forms/ReminderForm';
-import { ExpenseForm } from '../components/forms/ExpenseForm';
+import { formatDate } from '../utils/formatters';
 
 export const VehicleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,18 +17,14 @@ export const VehicleDetail: React.FC = () => {
     expenses,
     vehicleStats,
     selectVehicle,
-    createMaintenanceService,
-    createMaintenanceReminder,
-    createExpense,
+
     completeReminder,
     deleteVehicle,
     loading,
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState('overview');
-  const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
-  const [showReminderForm, setShowReminderForm] = useState(false);
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
@@ -68,20 +62,7 @@ export const VehicleDetail: React.FC = () => {
     );
   }
 
-  const handleMaintenanceSubmit = async (data: any) => {
-    await createMaintenanceService(data);
-    setShowMaintenanceForm(false);
-  };
 
-  const handleReminderSubmit = async (data: any) => {
-    await createMaintenanceReminder(data);
-    setShowReminderForm(false);
-  };
-
-  const handleExpenseSubmit = async (data: any) => {
-    await createExpense(data);
-    setShowExpenseForm(false);
-  };
 
   const handleDeleteVehicle = async () => {
     if (selectedVehicle?.id) {
@@ -352,35 +333,12 @@ export const VehicleDetail: React.FC = () => {
             <h2 className="text-lg font-medium text-gray-900">
               Histórico de Manutenções
             </h2>
-            <button
-              onClick={() => setShowMaintenanceForm(true)}
-              className="btn-primary"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Manutenção
-            </button>
-          </div>
-
-          {showMaintenanceForm ? (
-            <div className="card mb-6 animate-slide-up">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Registrar Nova Manutenção
-              </h3>
-              <MaintenanceForm
-                vehicleId={selectedVehicle.id}
-                onSubmit={handleMaintenanceSubmit}
-                isLoading={loading}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={() => setShowMaintenanceForm(false)}
-                  className="btn-secondary mr-2"
-                >
-                  Cancelar
-                </button>
-              </div>
+            <div className="bg-green-50 px-3 py-2 rounded-lg">
+              <p className="text-sm text-green-800">
+                ✨ Manutenções criadas na página principal "Manutenções"
+              </p>
             </div>
-          ) : null}
+          </div>
 
           <div className="card">
             <MaintenanceTimeline services={maintenanceServices} />
@@ -394,35 +352,14 @@ export const VehicleDetail: React.FC = () => {
             <h2 className="text-lg font-medium text-gray-900">
               Lembretes de Manutenção
             </h2>
-            <button
-              onClick={() => setShowReminderForm(true)}
-              className="btn-primary"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Lembrete
-            </button>
+            <div className="bg-green-50 px-3 py-2 rounded-lg">
+              <p className="text-sm text-green-800">
+                ✨ Lembretes criados automaticamente via manutenções
+              </p>
+            </div>
           </div>
 
-          {showReminderForm ? (
-            <div className="card mb-6 animate-slide-up">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Criar Novo Lembrete
-              </h3>
-              <ReminderForm
-                vehicleId={selectedVehicle.id}
-                onSubmit={handleReminderSubmit}
-                isLoading={loading}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={() => setShowReminderForm(false)}
-                  className="btn-secondary mr-2"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : null}
+
 
           <div className="card">
             <RemindersList
@@ -439,35 +376,14 @@ export const VehicleDetail: React.FC = () => {
             <h2 className="text-lg font-medium text-gray-900">
               Registro de Despesas
             </h2>
-            <button
-              onClick={() => setShowExpenseForm(true)}
-              className="btn-primary"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Despesa
-            </button>
+            <div className="bg-green-50 px-3 py-2 rounded-lg">
+              <p className="text-sm text-green-800">
+                ✨ Despesas criadas automaticamente via manutenções
+              </p>
+            </div>
           </div>
 
-          {showExpenseForm ? (
-            <div className="card mb-6 animate-slide-up">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Registrar Nova Despesa
-              </h3>
-              <ExpenseForm
-                vehicleId={selectedVehicle.id}
-                onSubmit={handleExpenseSubmit}
-                isLoading={loading}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={() => setShowExpenseForm(false)}
-                  className="btn-secondary mr-2"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : null}
+
 
           {vehicleStats && (
             <div className="card mb-6">
@@ -515,8 +431,8 @@ export const VehicleDetail: React.FC = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {expenses.map((expense) => (
                     <tr key={expense.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(expense.date).toLocaleDateString('pt-BR')}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatDate(expense.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span

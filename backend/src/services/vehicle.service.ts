@@ -134,21 +134,35 @@ export class VehicleService {
         mileage?: number
     }) {
         try {
-            // Se está atualizando a placa, verificar se não existe
+            // Se está atualizando a placa, verificar se não existe conflito
             if (data.licensePlate) {
-                const existingVehicle = await prisma.vehicle.findFirst({
-                    where: {
-                        licensePlate: data.licensePlate,
-                        NOT: { id }
-                    }
-                })
+                // Normalizar placa primeiro
+                const normalizedPlate = data.licensePlate.toUpperCase().trim();
 
-                if (existingVehicle) {
-                    throw new Error(`A placa ${data.licensePlate} já está sendo usada por outro veículo`)
+                // Primeiro, obter o veículo atual para saber quem é o proprietário
+                const currentVehicle = await prisma.vehicle.findUnique({
+                    where: { id }
+                });
+
+                if (!currentVehicle) {
+                    throw new Error('Veículo não encontrado');
                 }
 
-                // Normalizar placa
-                data.licensePlate = data.licensePlate.toUpperCase()
+                // Verificar se o mesmo proprietário já tem outro veículo com esta placa
+                const existingVehicle = await prisma.vehicle.findFirst({
+                    where: {
+                        licensePlate: normalizedPlate,
+                        ownerId: currentVehicle.ownerId,  // Mesmo proprietário
+                        NOT: { id: id }  // Excluir o veículo atual da verificação
+                    }
+                });
+
+                if (existingVehicle) {
+                    throw new Error(`Você já possui outro veículo cadastrado com a placa ${normalizedPlate}`);
+                }
+
+                // Aplicar placa normalizada
+                data.licensePlate = normalizedPlate;
             }
 
             return await prisma.vehicle.update({
@@ -177,7 +191,7 @@ export class VehicleService {
 
     async delete(id: string) {
         try {
-            // Verificar se o veículo tem manutenções ou outros dados vinculados
+            // Verificar se o veículo existe
             const vehicle = await prisma.vehicle.findUnique({
                 where: { id },
                 include: {
@@ -195,20 +209,38 @@ export class VehicleService {
                 throw new Error('Veículo não encontrado')
             }
 
-            const totalRecords = vehicle._count.maintenances + vehicle._count.reminders + vehicle._count.expenses
+            // Deletar em cascata todos os registros relacionados
+            await prisma.$transaction(async (tx) => {
+                // Deletar expenses relacionadas
+                await tx.expense.deleteMany({
+                    where: { vehicleId: id }
+                })
 
-            if (totalRecords > 0) {
-                throw new Error(`Não é possível excluir o veículo pois ele possui ${totalRecords} registro(s) vinculado(s) (manutenções, lembretes ou despesas)`)
-            }
+                // Deletar reminders relacionados
+                await tx.reminder.deleteMany({
+                    where: { vehicleId: id }
+                })
 
-            return await prisma.vehicle.delete({
-                where: { id }
+                // Deletar maintenances relacionadas
+                await tx.maintenance.deleteMany({
+                    where: { vehicleId: id }
+                })
+
+                // Deletar o veículo
+                await tx.vehicle.delete({
+                    where: { id }
+                })
             })
+
+            console.log(`✅ Veículo ${vehicle.brand} ${vehicle.model} (${vehicle.licensePlate}) e todos os registros relacionados foram excluídos`)
+
+            return { message: 'Veículo e registros relacionados excluídos com sucesso' }
         } catch (error: any) {
             if (error.code === 'P2025') {
                 throw new Error('Veículo não encontrado')
             }
 
+            console.error('❌ Erro ao excluir veículo:', error)
             throw error
         }
     }

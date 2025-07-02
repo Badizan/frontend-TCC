@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../store';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Grid, List, SortAsc, SortDesc } from 'lucide-react';
+import { Plus, Search, Filter, Grid, List, SortAsc, SortDesc, Trash2, Edit, Eye } from 'lucide-react';
+import { useNotifications } from '../hooks/useNotifications';
 
 const VehicleList: React.FC = () => {
-  const { vehicles, fetchVehicles } = useAppStore();
+  const { vehicles, fetchVehicles, deleteVehicle } = useAppStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -12,6 +13,8 @@ const VehicleList: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
+  
+  const { showToast } = useNotifications();
 
   useEffect(() => {
     fetchVehicles();
@@ -96,6 +99,44 @@ const VehicleList: React.FC = () => {
     return sortOrder === 'asc' ? 
       <SortAsc className="w-4 h-4 ml-1" /> : 
       <SortDesc className="w-4 h-4 ml-1" />;
+  };
+
+  const handleDeleteVehicle = async (e: React.MouseEvent, vehicle: any) => {
+    e.stopPropagation(); // Evitar navegação ao clicar no card
+    
+    if (!confirm(`Tem certeza que deseja excluir o veículo ${vehicle.brand} ${vehicle.model} (${vehicle.licensePlate})?`)) {
+      return;
+    }
+    
+    try {
+      await deleteVehicle(vehicle.id);
+      
+      showToast(
+        'Veículo Excluído',
+        `${vehicle.brand} ${vehicle.model} foi excluído com sucesso`,
+        'vehicles',
+        'success'
+      );
+      
+    } catch (error) {
+      console.error('Erro ao excluir veículo:', error);
+      showToast(
+        'Erro',
+        'Não foi possível excluir o veículo. Tente novamente.',
+        'system',
+        'error'
+      );
+    }
+  };
+
+  const handleEditVehicle = (e: React.MouseEvent, vehicleId: string) => {
+    e.stopPropagation(); // Evitar navegação ao clicar no card
+    navigate(`/vehicles/${vehicleId}/edit`);
+  };
+
+  const handleViewVehicle = (e: React.MouseEvent, vehicleId: string) => {
+    e.stopPropagation(); // Evitar navegação ao clicar no card
+    navigate(`/vehicles/${vehicleId}`);
   };
 
   return (
@@ -252,14 +293,39 @@ const VehicleList: React.FC = () => {
             return (
               <div
                 key={vehicle.id}
-                className="card cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-                onClick={() => navigate(`/vehicles/${vehicle.id}`)}
+                className="card hover:shadow-lg transition-all duration-200"
               >
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className={`badge ${status.className}`}>
                       {status.text}
                     </span>
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={(e) => handleViewVehicle(e, vehicle.id)}
+                        className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                        title="Ver detalhes"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleEditVehicle(e, vehicle.id)}
+                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                        title="Editar veículo"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteVehicle(e, vehicle)}
+                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                        title="Excluir veículo"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
                     <span className="text-sm text-gray-500">
                       {formatVehicleType(vehicle.type)}
                     </span>

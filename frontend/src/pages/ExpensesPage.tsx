@@ -1,34 +1,104 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../store';
-import { Plus, Search, Filter, DollarSign, TrendingUp, Calendar } from 'lucide-react';
+import { Plus, Search, Filter, DollarSign, TrendingUp, Calendar, Trash2 } from 'lucide-react';
 import { ExpenseForm } from '../components/forms/ExpenseForm';
 import { ExpenseChart } from '../components/dashboard/ExpenseChart';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNotifications } from '../hooks/useNotifications';
+import { parseLocalDate, formatDate } from '../utils/formatters';
 
 const ExpensesPage: React.FC = () => {
-  const { expenses, vehicles, fetchExpenses, fetchVehicles, createExpense } = useAppStore();
+  const { expenses, vehicles, fetchExpenses, fetchVehicles, createExpense, deleteExpense } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showForm, setShowForm] = useState(false);
-  const [selectedVehicleForForm, setSelectedVehicleForForm] = useState<string>('');
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartKey, setChartKey] = useState<number>(0); // Force re-render do gráfico
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<any>(null);
+  
+  const { showToast } = useNotifications();
 
   useEffect(() => {
     fetchExpenses();
     fetchVehicles();
   }, [fetchExpenses, fetchVehicles]);
 
-  const handleCreateExpense = async (data: any) => {
-    try {
-      await createExpense(data);
-      setShowForm(false);
-      setSelectedVehicleForForm('');
-      // Recarregar dados após criar
-      fetchExpenses();
-    } catch (error) {
-      console.error('Erro ao criar despesa:', error);
+  // Atualizar dados do gráfico sempre que expenses mudar
+  useEffect(() => {
+    if (expenses.length === 0) {
+      setChartData([]);
+      return;
     }
+
+    // Agrupar despesas por mês
+    const groupedExpenses = expenses.reduce((groups: Record<string, Expense[]>, expense) => {
+      const expenseDate = parseLocalDate(expense.date.toString());
+      const monthYear = format(expenseDate, 'MMM yyyy', { locale: ptBR });
+      
+      if (!groups[monthYear]) {
+        groups[monthYear] = [];
+      }
+      groups[monthYear].push(expense);
+      return groups;
+    }, {});
+
+    // Converter para array e ordenar por data
+    const sortedData = Object.entries(groupedExpenses)
+      .map(([month, expenses]) => {
+        const monthIndex = new Date(month).getMonth();
+        const sortDate = new Date(parseInt(month.split(' ')[1]), monthIndex, 1);
+        
+        return {
+          month,
+          amount: expenses.reduce((sum, expense) => sum + expense.amount, 0),
+          sortDate
+        };
+      })
+      .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
+      .slice(-6) // Últimos 6 meses
+      .map(({ month, amount }) => ({ month, amount }));
+
+    setChartData(sortedData);
+    setChartKey(prev => prev + 1); // Force re-render do gráfico
+  }, [expenses]);
+
+
+
+  const handleDeleteClick = (expense: any) => {
+    setExpenseToDelete(expense);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!expenseToDelete) return;
+
+    try {
+      await deleteExpense(expenseToDelete.id);
+      setShowDeleteModal(false);
+      setExpenseToDelete(null);
+      
+      showToast(
+        'Despesa Excluída',
+        `Despesa "${expenseToDelete.description}" foi excluída com sucesso`,
+        'expenses',
+        'success'
+      );
+    } catch (error) {
+      console.error('Erro ao deletar despesa:', error);
+      showToast(
+        'Erro',
+        'Não foi possível excluir a despesa. Tente novamente.',
+        'system',
+        'error'
+      );
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setExpenseToDelete(null);
   };
 
   const formatCategory = (category: string) => {
@@ -75,35 +145,19 @@ const ExpensesPage: React.FC = () => {
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const averageExpense = filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0;
 
-  // Preparar dados para o gráfico
-  const chartData = expenses.reduce((acc: any[], expense) => {
-    const monthYear = format(new Date(expense.date), 'MMM yyyy', { locale: ptBR });
-    const existing = acc.find(item => item.month === monthYear);
-    
-    if (existing) {
-      existing.amount += expense.amount;
-    } else {
-      acc.push({ month: monthYear, amount: expense.amount });
-    }
-    
-    return acc;
-  }, []).slice(-6); // Últimos 6 meses
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Despesas</h1>
-          <p className="text-sm text-gray-600">Gerencie todas as despesas dos seus veículos</p>
+          <p className="text-sm text-gray-600">Despesas são criadas automaticamente através das manutenções</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Despesa
-        </button>
+        <div className="bg-green-50 px-4 py-2 rounded-lg">
+          <p className="text-sm text-green-800">
+            ✨ <strong>Criação Automática:</strong> Despesas são geradas automaticamente quando você agenda uma manutenção com custo
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -164,12 +218,19 @@ const ExpensesPage: React.FC = () => {
       </div>
 
       {/* Chart */}
-      {chartData.length > 0 && (
-        <div className="card">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Gastos Mensais</h2>
-          <ExpenseChart data={chartData} />
-        </div>
-      )}
+      <div className="card">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Gastos Mensais</h2>
+        {chartData.length > 0 ? (
+          <ExpenseChart key={chartKey} data={chartData} />
+        ) : (
+          <div className="h-64 flex items-center justify-center text-gray-500">
+            <div className="text-center">
+              <p className="text-lg font-medium">Nenhuma despesa registrada ainda</p>
+              <p className="text-sm">Comece registrando algumas despesas para ver o gráfico</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -222,47 +283,7 @@ const ExpensesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Nova Despesa</h3>
-              <button
-                onClick={() => setShowForm(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="mb-4">
-              <label className="form-label">Selecione o veículo</label>
-              <select
-                className="form-input"
-                value={selectedVehicleForForm}
-                onChange={(e) => setSelectedVehicleForForm(e.target.value)}
-                required
-              >
-                <option value="">Escolha um veículo</option>
-                {vehicles.map(vehicle => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.brand} {vehicle.model} - {vehicle.licensePlate}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedVehicleForForm && (
-              <ExpenseForm
-                vehicleId={selectedVehicleForForm}
-                onSubmit={handleCreateExpense}
-                isLoading={false}
-              />
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Results */}
       <div className="card">
@@ -297,6 +318,9 @@ const ExpensesPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Data
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -321,8 +345,17 @@ const ExpensesPage: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatDate(expense.date)}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}
+                      <button
+                        onClick={() => handleDeleteClick(expense)}
+                        className="text-red-600 hover:text-red-900 transition-colors"
+                        title="Excluir despesa"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -334,11 +367,52 @@ const ExpensesPage: React.FC = () => {
             <DollarSign className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <p className="text-gray-500">Nenhuma despesa encontrada.</p>
             <p className="text-sm text-gray-400 mt-1">
-              Registre as despesas para acompanhar os custos dos seus veículos.
+              Despesas são criadas automaticamente ao agendar manutenções com custo.
             </p>
           </div>
         )}
       </div>
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && expenseToDelete && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Confirmar Exclusão
+                </h3>
+              </div>
+            </div>
+            <div className="mb-6">
+              <p className="text-sm text-gray-500">
+                Tem certeza de que deseja excluir a despesa{' '}
+                <strong>"{expenseToDelete.description}"</strong>?
+              </p>
+              <p className="text-sm text-red-600 mt-2">
+                ⚠️ Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={handleDeleteCancel}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="inline-flex justify-center rounded-md border border-transparent bg-red-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

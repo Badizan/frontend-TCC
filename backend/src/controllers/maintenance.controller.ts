@@ -3,6 +3,7 @@ import { BaseController } from './base.controller'
 import { MaintenanceService } from '../services/maintenance.service'
 import { VehicleService } from '../services/vehicle.service'
 import { z } from 'zod'
+import { parseLocalDate } from '../utils/dateParser'
 
 const maintenanceService = new MaintenanceService()
 const vehicleService = new VehicleService()
@@ -12,7 +13,7 @@ const createMaintenanceSchema = z.object({
   mechanicId: z.string().uuid('Invalid mechanic ID'),
   type: z.enum(['PREVENTIVE', 'CORRECTIVE', 'INSPECTION']),
   description: z.string().min(1, 'Description is required'),
-  scheduledDate: z.string().transform(str => new Date(str)),
+  scheduledDate: z.string().transform(str => parseLocalDate(str)),
   cost: z.number().optional(),
   notes: z.string().optional()
 })
@@ -21,8 +22,8 @@ const updateMaintenanceSchema = z.object({
   type: z.enum(['PREVENTIVE', 'CORRECTIVE', 'INSPECTION']).optional(),
   status: z.enum(['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
   description: z.string().min(1).optional(),
-  scheduledDate: z.string().transform(str => new Date(str)).optional(),
-  completedDate: z.string().transform(str => new Date(str)).optional(),
+  scheduledDate: z.string().transform(str => parseLocalDate(str)).optional(),
+  completedDate: z.string().transform(str => parseLocalDate(str)).optional(),
   cost: z.number().optional(),
   notes: z.string().optional()
 })

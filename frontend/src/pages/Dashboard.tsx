@@ -4,9 +4,9 @@ import { useAppStore } from '../store';
 import StatsCard from '../components/dashboard/StatsCard';
 import RecentMaintenances from '../components/dashboard/RecentMaintenances';
 import { RemindersList } from '../components/dashboard/RemindersList';
-import SimpleExpenseChart from '../components/dashboard/SimpleExpenseChart';
+import { parseLocalDate } from '../utils/formatters';
 
-import { Car, Wrench, Clock, DollarSign, AlertTriangle } from 'lucide-react';
+import { Car, Wrench, Clock, DollarSign } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ const Dashboard: React.FC = () => {
     upcomingReminders: maintenanceReminders?.filter(r => !r.completed).length || 0,
     monthlyExpenses: expenses
       ?.filter(e => {
-        const expenseDate = new Date(e.date);
+        const expenseDate = parseLocalDate(e.date.toString());
         const currentDate = new Date();
         return expenseDate.getMonth() === currentDate.getMonth() &&
                expenseDate.getFullYear() === currentDate.getFullYear();
@@ -61,24 +61,17 @@ const Dashboard: React.FC = () => {
       .reduce((total, expense) => total + expense.amount, 0) || 0,
   };
 
-  // Alertas importantes
+  // Calcular lembretes urgentes para as estatísticas
   const urgentReminders = maintenanceReminders?.filter(r => {
     if (r.completed) return false;
     
+    if (!r.dueDate) return false;
+    
     const today = new Date();
-    const reminderDate = new Date(r.reminderDate);
+    const reminderDate = parseLocalDate(r.dueDate.toString());
     const diffDays = Math.ceil((reminderDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
     
     return diffDays <= 7 && diffDays >= 0; // Próximos 7 dias
-  }) || [];
-
-  const overdueReminders = maintenanceReminders?.filter(r => {
-    if (r.completed) return false;
-    
-    const today = new Date();
-    const reminderDate = new Date(r.reminderDate);
-    
-    return reminderDate < today; // Vencidos
   }) || [];
 
   if (loading) {
@@ -100,26 +93,6 @@ const Dashboard: React.FC = () => {
           Aqui está um resumo dos seus veículos e atividades recentes
         </p>
       </div>
-
-      {/* Alertas Importantes */}
-      {(urgentReminders.length > 0 || overdueReminders.length > 0) && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
-          <div className="flex items-center">
-            <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
-            <h3 className="text-sm font-medium text-red-800">
-              Atenção! Você tem lembretes importantes
-            </h3>
-          </div>
-          <div className="mt-2 text-sm text-red-700">
-            {overdueReminders.length > 0 && (
-              <p>• {overdueReminders.length} lembrete(s) vencido(s)</p>
-            )}
-            {urgentReminders.length > 0 && (
-              <p>• {urgentReminders.length} lembrete(s) para os próximos 7 dias</p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Cards de Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -158,34 +131,10 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Grid principal de componentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Coluna da esquerda - Manutenções e Gráfico */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Coluna da esquerda - Manutenções */}
+        <div className="lg:col-span-1">
           <RecentMaintenances />
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="bg-purple-100 p-2 rounded-lg">
-                  <DollarSign className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Gastos Mensais
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Evolução dos gastos ao longo do tempo
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => navigate('/expenses')}
-                className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-              >
-                Ver todas
-              </button>
-            </div>
-                         <SimpleExpenseChart data={[]} />
-          </div>
         </div>
 
         {/* Coluna da direita - Lembretes */}
@@ -267,25 +216,15 @@ const Dashboard: React.FC = () => {
               >
                 + Agendar Manutenção
               </button>
-              <button 
-                onClick={() => navigate('/reminders')}
-                className="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 rounded-md transition-colors"
-              >
-                + Criar Lembrete
-              </button>
-              <button 
-                onClick={() => navigate('/expenses')}
-                className="w-full text-left px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
-              >
-                + Registrar Despesa
-              </button>
+              <div className="bg-green-50 p-3 rounded-md">
+                <p className="text-xs text-green-700 font-medium">
+                  ✨ Ao agendar manutenções, lembretes e despesas são criados automaticamente!
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      
-      {/* Componentes de teste temporários - removidos para produção */}
-      
     </div>
   );
 };

@@ -2,14 +2,16 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { Wrench, Calendar, Clock, User, CheckCircle, AlertCircle } from 'lucide-react';
+import { MaintenanceService } from '../../types';
+import { parseLocalDate, formatDate } from '../../utils/formatters';
 
 const RecentMaintenances: React.FC = () => {
   const navigate = useNavigate();
   const { maintenanceServices } = useAppStore();
 
   // Pegar as últimas 5 manutenções, ordenadas por data
-  const recentMaintenances = (maintenanceServices || [])
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const recentMaintenances = maintenanceServices
+    .sort((a, b) => parseLocalDate(b.createdAt.toString()).getTime() - parseLocalDate(a.createdAt.toString()).getTime())
     .slice(0, 5);
 
   const getStatusColor = (status: string) => {
@@ -57,12 +59,8 @@ const RecentMaintenances: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+  const formatDateString = (dateString: string | Date): string => {
+    return formatDate(dateString);
   };
 
   const formatCurrency = (amount: number) => {
@@ -145,8 +143,8 @@ const RecentMaintenances: React.FC = () => {
                       <Calendar className="h-3 w-3" />
                       <span>
                         {maintenance.scheduledDate 
-                          ? formatDate(maintenance.scheduledDate)
-                          : formatDate(maintenance.createdAt)
+                          ? formatDateString(maintenance.scheduledDate)
+                          : formatDateString(maintenance.createdAt)
                         }
                       </span>
                     </div>

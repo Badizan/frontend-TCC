@@ -38,4 +38,8 @@ export async function notificationRoutes(app: FastifyInstance) {
     app.post('/test-email', {
         preHandler: authMiddleware
     }, notificationController.sendTestEmail.bind(notificationController))
+
+    app.post('/check-immediate', {
+        preHandler: authMiddleware
+    }, notificationController.checkImmediate.bind(notificationController))
 }

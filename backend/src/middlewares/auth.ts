@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
+import { UserRole } from '../types'
 
 const prisma = new PrismaClient()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
@@ -30,129 +31,75 @@ declare global {
   }
 }
 
+interface JWTPayload {
+  id: string;
+  email: string;
+  role: string;
+}
+
+// Log de auditoria para rastrear ações por usuário
+const auditLog = (userId: string, action: string, resource: string, details?: any) => {
+  const timestamp = new Date().toISOString();
+  console.log(`🔍 AUDIT [${timestamp}] User: ${userId} | Action: ${action} | Resource: ${resource}`, details ? `| Details: ${JSON.stringify(details)}` : '');
+};
+
 export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  const authHeader = request.headers.authorization;
+
+  // Log da tentativa de acesso
+  console.log(`🔐 AUTH: ${request.method} ${request.url} - IP: ${request.ip}`);
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.warn('⚠️ AUTH: Token não fornecido ou formato inválido');
+    return reply.status(401).send({ message: 'Token não fornecido ou inválido' });
+  }
+
+  const token = authHeader.substring(7);
+
   try {
-    const authHeader = request.headers.authorization
-
-    if (!authHeader) {
-      return reply.status(401).send({
-        success: false,
-        message: 'Token de autorização não fornecido'
-      })
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('❌ AUTH: JWT_SECRET não configurado');
+      return reply.status(500).send({ message: 'Erro de configuração do servidor' });
     }
 
-    if (!authHeader.startsWith('Bearer ')) {
-      return reply.status(401).send({
-        success: false,
-        message: 'Formato de token inválido. Use: Bearer <token>'
-      })
+    const payload = jwt.verify(token, jwtSecret) as JWTPayload;
+
+    // Verificações extras de segurança
+    if (!payload.id || !payload.email) {
+      console.warn('🚨 AUTH: Token válido mas payload incompleto:', { id: payload.id, email: payload.email });
+      return reply.status(401).send({ message: 'Token inválido: dados do usuário incompletos' });
     }
 
-    const token = authHeader.replace('Bearer ', '')
+    // Anexar usuário à request
+    request.user = payload;
 
-    if (!token) {
-      return reply.status(401).send({
-        success: false,
-        message: 'Token não fornecido'
-      })
-    }
+    // Log de auditoria da ação autenticada
+    const resource = request.url.split('?')[0]; // Remove query params do log
+    auditLog(payload.id, request.method, resource, {
+      userEmail: payload.email,
+      userRole: payload.role,
+      queryParams: Object.keys(request.query).length > 0 ? request.query : undefined,
+      bodyPresent: request.method !== 'GET' && Object.keys(request.body || {}).length > 0
+    });
 
-    // Verificar e decodificar o token
-    let decoded: any
-    try {
-      decoded = jwt.verify(token, JWT_SECRET)
-    } catch (jwtError: any) {
-      if (jwtError.name === 'TokenExpiredError') {
-        return reply.status(401).send({
-          success: false,
-          message: 'Token expirado. Faça login novamente.'
-        })
-      } else if (jwtError.name === 'JsonWebTokenError') {
-        return reply.status(401).send({
-          success: false,
-          message: 'Token inválido'
-        })
-      } else {
-        return reply.status(401).send({
-          success: false,
-          message: 'Erro ao verificar token'
-        })
-      }
-    }
+    console.log(`✅ AUTH: Usuário autenticado - ${payload.email} (${payload.id})`);
+  } catch (error: any) {
+    console.warn('🚨 AUTH: Token inválido ou expirado:', error.message);
 
-    if (!decoded.userId) {
-      return reply.status(401).send({
-        success: false,
-        message: 'Token inválido: userId não encontrado'
-      })
-    }
+    // Log de tentativa de acesso com token inválido
+    console.warn('🚨 SECURITY: Tentativa de acesso com token inválido', {
+      ip: request.ip,
+      url: request.url,
+      method: request.method,
+      userAgent: request.headers['user-agent'],
+      errorType: error.name
+    });
 
-    // Verificar se é o usuário de teste primeiro
-    if (decoded.userId === TEST_USER.id) {
-      console.log('🔐 Middleware: Usuário de teste autenticado');
-      request.user = {
-        id: TEST_USER.id,
-        role: TEST_USER.role,
-        email: TEST_USER.email,
-        name: TEST_USER.name
-      }
-      return
-    }
-
-    // Tentar buscar usuário no banco de dados
-    try {
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          name: true
-        }
-      })
-
-      if (!user) {
-        return reply.status(401).send({
-          success: false,
-          message: 'Usuário não encontrado ou foi removido'
-        })
-      }
-
-      // Adicionar informações do usuário ao request
-      request.user = {
-        id: user.id,
-        role: user.role,
-        email: user.email,
-        name: user.name
-      }
-
-      // Log para debug (remover em produção)
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`🔐 Usuário autenticado: ${user.email} (${user.role})`)
-      }
-
-    } catch (dbError) {
-      console.warn('⚠️ Middleware: Banco indisponível, usando fallback para usuário válido');
-
-      // Se não conseguir acessar o banco, mas o token é válido,
-      // usar dados básicos do token para desenvolvimento
-      request.user = {
-        id: decoded.userId,
-        role: 'OWNER', // Role padrão para desenvolvimento
-        email: 'user@development.com',
-        name: 'Usuário de Desenvolvimento'
-      }
-    }
-
-  } catch (error) {
-    console.error('❌ Erro no middleware de autenticação:', error)
-    return reply.status(500).send({
-      success: false,
-      message: 'Erro interno do servidor'
-    })
+    return reply.status(401).send({ message: 'Token inválido ou expirado' });
   }
 }
 
@@ -200,4 +147,27 @@ export function requireOwnerOrAdmin(request: FastifyRequest, reply: FastifyReply
     reply.status(403).send({ error: 'Access denied. Must be the owner or admin.' })
     return
   }
+}
+
+// Middleware adicional para verificar proprietário de recursos
+export function createOwnershipMiddleware(resourceType: 'vehicle' | 'expense' | 'maintenance' | 'reminder') {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = request.user;
+    if (!user) {
+      console.error('❌ OWNERSHIP: Middleware chamado sem usuário autenticado');
+      return reply.status(401).send({ message: 'Usuário não autenticado' });
+    }
+
+    const { id } = request.params as { id: string };
+    if (id) {
+      // Log da verificação de propriedade
+      auditLog(user.id, 'OWNERSHIP_CHECK', `${resourceType}:${id}`, {
+        userEmail: user.email,
+        userRole: user.role
+      });
+    }
+
+    // Este middleware apenas registra, a verificação real acontece nos controllers
+    console.log(`🔍 OWNERSHIP: Verificando propriedade de ${resourceType} para usuário ${user.email}`);
+  };
 } 

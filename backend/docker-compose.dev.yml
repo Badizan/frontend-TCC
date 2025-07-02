@@ -5,8 +5,8 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: oficina_mecanica
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: automanutencao
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getLocalDateString, getTodayString, parseLocalDate } from '../../utils/formatters';
 
 interface ReminderFormProps {
   vehicleId: string;
@@ -39,7 +40,7 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({
 
     onSubmit({
       ...formData,
-      dueDate: formData.dueDate ? new Date(formData.dueDate) : new Date(),
+      dueDate: formData.dueDate ? parseLocalDate(formData.dueDate) : new Date(),
     });
   };
 
@@ -76,7 +77,7 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({
             value={formData.dueDate}
             onChange={handleChange}
             className="form-input"
-            min={new Date().toISOString().split('T')[0]}
+            min={getTodayString()}
             required
           />
           <p className="text-xs text-gray-500 mt-1">

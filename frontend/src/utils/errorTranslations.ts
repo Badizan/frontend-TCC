@@ -21,7 +21,22 @@ export const errorMessages: { [key: string]: string } = {
     'ECONNREFUSED': 'Não foi possível conectar ao servidor',
     'fetch failed': 'Erro de conexão com o servidor',
     'NetworkError': 'Erro de rede. Verifique sua conexão',
-    'Failed to fetch': 'Erro de conexão. Verifique se o servidor está rodando'
+    'Failed to fetch': 'Erro de conexão. Verifique se o servidor está rodando',
+
+    // Erros específicos de veículo/placa
+    'Você já possui um veículo cadastrado com a placa': 'Você já possui um veículo cadastrado com a placa',
+    'Você já possui outro veículo cadastrado com a placa': 'Você já possui outro veículo cadastrado com a placa',
+    'A placa': 'A placa',
+    'já está cadastrada no sistema': 'já está cadastrada no sistema',
+    'já está sendo usada por outro veículo': 'já está sendo usada por outro veículo',
+    'Vehicle not found': 'Veículo não encontrado',
+    'Access denied to this vehicle': 'Acesso negado a este veículo',
+    'Invalid license plate format': 'Formato de placa inválido (ex: ABC-1234 ou ABC-1D23)',
+    'License plate is required': 'Placa é obrigatória',
+    'Brand is required': 'Marca é obrigatória',
+    'Model is required': 'Modelo é obrigatório',
+    'Year must be between 1900 and': 'Ano deve estar entre 1900 e',
+    'Mileage cannot be negative': 'Quilometragem não pode ser negativa'
 };
 
 export const translateError = (error: string): string => {
@@ -32,6 +47,25 @@ export const translateError = (error: string): string => {
 
     // Busca por palavras-chave
     const lowerError = error.toLowerCase();
+
+    // Tratamento específico para erros de placa
+    if (lowerError.includes('placa') || lowerError.includes('license plate')) {
+        if (lowerError.includes('já está cadastrada') || lowerError.includes('already registered')) {
+            return 'Esta placa já está cadastrada no sistema. Use uma placa diferente.';
+        }
+        if (lowerError.includes('já está sendo usada') || lowerError.includes('already in use')) {
+            return 'Esta placa já está sendo usada por outro veículo. Use uma placa diferente.';
+        }
+        if (lowerError.includes('já possui') && lowerError.includes('veículo')) {
+            return 'Você já possui um veículo com esta placa. Use uma placa diferente.';
+        }
+        if (lowerError.includes('invalid') || lowerError.includes('formato')) {
+            return 'Formato de placa inválido. Use o formato ABC-1234 ou ABC-1D23.';
+        }
+        if (lowerError.includes('required') || lowerError.includes('obrigatória')) {
+            return 'Placa é obrigatória. Preencha este campo.';
+        }
+    }
 
     if (lowerError.includes('email')) {
         if (lowerError.includes('registrado') || lowerError.includes('cadastrado') ||

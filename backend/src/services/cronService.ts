@@ -9,12 +9,18 @@ const predictionService = new PredictionService();
 
 export class CronService {
     static initialize() {
-        // Executa a cada hora para verificar lembretes e notificações
-        cron.schedule('0 * * * *', async () => {
-            console.log('Executando verificação de lembretes e notificações...');
+        // Executa a cada 15 minutos para verificar lembretes e notificações urgentes
+        cron.schedule('*/15 * * * *', async () => {
+            console.log('🔔 Executando verificação urgente de lembretes e notificações...');
             await this.checkReminders();
             await this.checkMaintenanceDue();
+        });
+
+        // Executa a cada hora para verificações completas
+        cron.schedule('0 * * * *', async () => {
+            console.log('🕐 Executando verificação completa de lembretes e alertas...');
             await this.checkMileageAlerts();
+            await this.checkAllUserReminders();
         });
 
         // Executa diariamente às 8h para gerar previsões
@@ -31,7 +37,34 @@ export class CronService {
             await this.generateWeeklyReports();
         });
 
-        console.log('CronService inicializado com sucesso');
+        console.log('🚀 CronService inicializado com sucesso');
+    }
+
+    // Verificar lembretes imediatos para todos os usuários
+    static async checkAllUserReminders() {
+        try {
+            console.log('👥 Verificando lembretes para todos os usuários...');
+
+            // Buscar todos os usuários ativos
+            const users = await prisma.user.findMany({
+                select: { id: true, email: true }
+            });
+
+            const { NotificationService } = await import('./notification.service');
+
+            for (const user of users) {
+                try {
+                    const notificationService = new NotificationService();
+                    await notificationService.checkImmediateReminders(user.id);
+                } catch (userError) {
+                    console.error(`❌ Erro ao verificar lembretes para usuário ${user.email}:`, userError);
+                }
+            }
+
+            console.log(`✅ Verificação de lembretes concluída para ${users.length} usuários`);
+        } catch (error) {
+            console.error('❌ Erro na verificação geral de lembretes:', error);
+        }
     }
 
     // Verificar lembretes baseados em tempo e quilometragem

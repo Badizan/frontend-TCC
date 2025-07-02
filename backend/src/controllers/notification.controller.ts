@@ -157,4 +157,25 @@ export class NotificationController extends BaseController {
       return this.sendError(reply, error as Error);
     }
   };
+
+  // Verificar notificações imediatas
+  public checkImmediate = async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: 'Unauthorized' });
+      }
+
+      console.log('🔔 Verificando notificações imediatas para usuário:', userId);
+      
+      await this.notificationService.checkImmediateReminders(userId);
+
+      return this.sendResponse(reply, { 
+        success: true,
+        message: 'Verificação de notificações concluída'
+      });
+    } catch (error) {
+      return this.sendError(reply, error as Error);
+    }
+  };
 } 

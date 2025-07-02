@@ -345,7 +345,7 @@ export async function swaggerRoutes(app: FastifyInstance) {
                 }
             }
         }
-    }, vehicleController.findAll.bind(vehicleController))
+    }, vehicleController.getAll.bind(vehicleController))
 
     app.get('/vehicles/:id', {
         schema: {
@@ -429,7 +429,7 @@ export async function swaggerRoutes(app: FastifyInstance) {
                 }
             }
         }
-    }, vehicleController.findById.bind(vehicleController))
+    }, vehicleController.getById.bind(vehicleController))
 
     app.put('/vehicles/:id', {
         schema: {

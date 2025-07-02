@@ -22,6 +22,9 @@ interface AppState {
   user: any | null;
   isAuthenticated: boolean;
 
+  // Notification callback
+  onNotificationTrigger?: (type: string, title: string, message: string) => void;
+
   // Actions
   initializeAuth: () => Promise<void>;
   login: (email: string, password: string) => Promise<any>;
@@ -34,16 +37,22 @@ interface AppState {
   deleteVehicle: (id: string) => Promise<void>;
   fetchMaintenanceServices: (vehicleId?: string) => Promise<void>;
   createMaintenanceService: (service: Omit<MaintenanceService, 'id' | 'createdAt' | 'updatedAt'>) => Promise<MaintenanceService>;
+  updateMaintenanceService: (id: string, data: Partial<MaintenanceService>) => Promise<MaintenanceService>;
+  deleteMaintenanceService: (id: string) => Promise<void>;
   fetchMaintenanceReminders: (vehicleId?: string) => Promise<void>;
   createMaintenanceReminder: (reminder: Omit<MaintenanceReminder, 'id' | 'createdAt' | 'updatedAt'>) => Promise<MaintenanceReminder>;
   completeReminder: (id: string) => Promise<void>;
+  deleteMaintenanceReminder: (id: string) => Promise<void>;
   fetchExpenses: (vehicleId?: string) => Promise<void>;
   createExpense: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Expense>;
+  deleteExpense: (id: string) => Promise<void>;
   fetchVehicleStats: (vehicleId: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<any>;
   resetPassword: (token: string, password: string) => Promise<any>;
   validateResetToken: (token: string) => Promise<boolean>;
   clearUserData: () => void;
+  forceReset: () => void;
+  setNotificationCallback: (callback: (type: string, title: string, message: string) => void) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -58,10 +67,53 @@ export const useAppStore = create<AppState>((set, get) => ({
   vehicleStats: null,
   user: null,
   isAuthenticated: false,
+  onNotificationTrigger: undefined,
+
+  // Set notification callback
+  setNotificationCallback: (callback) => {
+    set({ onNotificationTrigger: callback });
+  },
+
+  // Force complete reset (emergency reset)
+  forceReset: () => {
+    console.log('🚨 Store: FORÇA RESET TOTAL DO SISTEMA');
+
+    // Limpar localStorage completamente
+    const keysToPreserve = ['theme', 'language']; // Preservar apenas configurações básicas
+    Object.keys(localStorage).forEach(key => {
+      if (!keysToPreserve.includes(key)) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    // Limpar sessionStorage também
+    sessionStorage.clear();
+
+    // Limpar cache da API
+    apiService.clearAllCache();
+
+    // Reset completo do estado
+    set({
+      loading: false,
+      error: null,
+      vehicles: [],
+      selectedVehicle: null,
+      maintenanceServices: [],
+      maintenanceReminders: [],
+      expenses: [],
+      vehicleStats: null,
+      user: null,
+      isAuthenticated: false,
+      onNotificationTrigger: undefined
+    });
+
+    console.log('✅ Store: Reset total concluído');
+  },
 
   // Clear all user data utility function
   clearUserData: () => {
     console.log('🧹 Store: Limpando todos os dados do usuário...');
+
     set({
       vehicles: [],
       selectedVehicle: null,
@@ -73,17 +125,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       error: null
     });
 
-    // Limpar cache local
+    // Limpar cache local de forma mais agressiva
+    const keysToRemove = [];
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('vehicle_') ||
         key.startsWith('maintenance_') ||
         key.startsWith('expense_') ||
         key.startsWith('reminder_') ||
         key.startsWith('stats_') ||
-        key.startsWith('cache_')) {
-        localStorage.removeItem(key);
+        key.startsWith('cache_') ||
+        key.startsWith('user_') ||
+        key.startsWith('data_')) {
+        keysToRemove.push(key);
       }
     });
+
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+
+    // Limpar sessionStorage também
+    sessionStorage.clear();
+
+    console.log(`🗑️ Store: ${keysToRemove.length} itens de cache removidos`);
   },
 
   // Initialize user profile if authenticated
@@ -91,19 +153,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const token = localStorage.getItem('auth_token');
     console.log('🔄 Store: initializeAuth chamado', { hasToken: !!token });
 
-    // Sempre limpar dados primeiro
-    const { clearUserData } = get();
-    clearUserData();
-
-    // Se não há token, define como não autenticado
+    // Se não há token, limpar tudo e sair
     if (!token) {
-      console.log('❌ Store: Sem token, definindo como não autenticado');
-      set({
-        isAuthenticated: false,
-        user: null,
-        loading: false,
-        error: null
-      });
+      console.log('❌ Store: Sem token, limpando e definindo como não autenticado');
+      const { forceReset } = get();
+      forceReset();
       return;
     }
 
@@ -118,25 +172,57 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ loading: true, error: null });
       console.log('🔑 Store: Buscando perfil do usuário...');
 
+      // LIMPEZA TOTAL antes de buscar perfil
+      const { forceReset } = get();
+      forceReset();
+
       const userProfile = await apiService.getProfile();
       console.log('✅ Store: Usuário carregado com sucesso:', userProfile);
+
+      // Verificar se o perfil é válido
+      if (!userProfile || !userProfile.id) {
+        throw new Error('Perfil de usuário inválido recebido');
+      }
+
+      // Verificar se é o mesmo usuário que estava logado antes (se houver)
+      const previousUserId = localStorage.getItem('last_user_id');
+      if (previousUserId && previousUserId !== userProfile.id) {
+        console.warn('🚨 Store: MUDANÇA DE USUÁRIO DETECTADA - Limpeza extra de segurança!', {
+          usuarioAnterior: previousUserId,
+          usuarioAtual: userProfile.id
+        });
+
+        // Limpeza extra para mudança de usuário
+        const { forceReset } = get();
+        forceReset();
+      }
+
+      // Salvar ID do usuário atual para futuras verificações
+      localStorage.setItem('last_user_id', userProfile.id);
 
       set({
         user: userProfile,
         isAuthenticated: true,
         loading: false,
-        error: null
+        error: null,
+        // Garantir estado limpo
+        vehicles: [],
+        selectedVehicle: null,
+        maintenanceServices: [],
+        maintenanceReminders: [],
+        expenses: [],
+        vehicleStats: null,
       });
+
+      console.log('✅ Store: Estado autenticado definido para:', userProfile.email);
     } catch (error: any) {
       console.error('❌ Store: Erro ao carregar usuário:', error);
 
-      // Limpar token inválido
-      localStorage.removeItem('auth_token');
-      apiService.clearAllCache();
+      // Limpar completamente em caso de erro
+      const { forceReset } = get();
+      forceReset();
 
       set({
-        user: null,
-        isAuthenticated: false,
         loading: false,
         error: 'Sessão expirada. Faça login novamente.'
       });
@@ -149,22 +235,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   login: async (email: string, password: string) => {
     try {
       set({ loading: true, error: null });
-      console.log('🔑 Store: Fazendo login...');
+      console.log('🔑 Store: Fazendo login para:', email);
 
-      // Limpar dados da sessão anterior antes do login
-      set({
-        vehicles: [],
-        selectedVehicle: null,
-        maintenanceServices: [],
-        maintenanceReminders: [],
-        expenses: [],
-        vehicleStats: null,
-      });
+      // LIMPEZA TOTAL antes do login
+      const { forceReset } = get();
+      forceReset();
 
       const response = await apiService.login(email, password);
       console.log('✅ Store: Login bem-sucedido:', response);
 
-      // Definir estado imediatamente
+      // Verificar se a resposta é válida
+      if (!response || !response.user || !response.user.id) {
+        throw new Error('Resposta de login inválida');
+      }
+
+      // Definir estado imediatamente com dados limpos
       set({
         user: response.user,
         isAuthenticated: true,
@@ -179,15 +264,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         vehicleStats: null,
       });
 
-      console.log('✅ Store: Estado atualizado - isAuthenticated:', true);
+      console.log('✅ Store: Estado atualizado para usuário:', response.user.email);
       return response;
     } catch (error: any) {
       console.error('❌ Store: Erro no login:', error);
+
+      // Força reset em caso de erro
+      const { forceReset } = get();
+      forceReset();
+
       set({
         error: error.message || 'Erro ao fazer login',
-        loading: false,
-        isAuthenticated: false,
-        user: null
+        loading: false
       });
       throw error;
     }
@@ -196,111 +284,130 @@ export const useAppStore = create<AppState>((set, get) => ({
   register: async (data: { name: string; email: string; password: string; role: string }) => {
     try {
       set({ loading: true, error: null });
-      console.log('📝 Store: Fazendo registro...');
+      console.log('📝 Store: Registrando usuário:', data.email);
 
-      // Limpar dados da sessão anterior antes do registro
-      set({
-        vehicles: [],
-        selectedVehicle: null,
-        maintenanceServices: [],
-        maintenanceReminders: [],
-        expenses: [],
-        vehicleStats: null,
-      });
+      // Limpar dados antes do registro
+      const { forceReset } = get();
+      forceReset();
 
       const response = await apiService.register(data);
-      console.log('✅ Store: Registro bem-sucedido:', response);
+      console.log('✅ Store: Registro bem-sucedido');
 
-      // NÃO fazer login automático - apenas retornar sucesso
-      set({
-        loading: false,
-        error: null,
-        // Manter como não autenticado
-        isAuthenticated: false,
-        user: null,
-        // Manter dados zerados
-        vehicles: [],
-        selectedVehicle: null,
-        maintenanceServices: [],
-        maintenanceReminders: [],
-        expenses: [],
-        vehicleStats: null,
-      });
-
-      return { success: true, message: 'Conta criada com sucesso! Faça login para continuar.' };
+      set({ loading: false });
+      return response;
     } catch (error: any) {
+      console.error('❌ Store: Erro no registro:', error);
       set({
-        error: error.message || 'Erro ao registrar',
-        loading: false,
-        isAuthenticated: false,
-        user: null
+        error: error.message || 'Erro ao registrar usuário',
+        loading: false
       });
       throw error;
     }
   },
 
   logout: () => {
-    console.log('🚪 Store: Fazendo logout e limpando todos os dados...');
+    console.log('🚪 Store: Fazendo logout...');
 
-    // Limpar token, cache da API e recriar instância
-    apiService.clearAllCache();
-    localStorage.removeItem('auth_token');
+    // Obter usuário atual antes de limpar
+    const currentUser = get().user;
+    const currentUserId = currentUser?.id;
 
-    // Limpar completamente TODOS os dados do estado
-    set({
-      user: null,
-      isAuthenticated: false,
-      vehicles: [],
-      selectedVehicle: null,
-      maintenanceServices: [],
-      maintenanceReminders: [],
-      expenses: [],
-      vehicleStats: null,
-      loading: false,
-      error: null
-    });
+    // Limpar token da API
+    apiService.clearToken();
 
-    // Limpar qualquer cache adicional no localStorage
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('vehicle_') ||
-        key.startsWith('maintenance_') ||
-        key.startsWith('expense_') ||
-        key.startsWith('reminder_') ||
-        key.startsWith('stats_') ||
-        key.startsWith('cache_')) {
-        localStorage.removeItem(key);
-      }
-    });
+    // Reset TOTAL do sistema
+    const { forceReset } = get();
+    forceReset();
 
-    // Forçar reload da página para garantir limpeza total
-    console.log('🔄 Store: Limpeza completa realizada');
+    // Limpar informações do último usuário
+    localStorage.removeItem('last_user_id');
+
+    // Limpeza extra específica do usuário
+    if (currentUserId) {
+      console.log('🧹 Store: Limpeza específica para usuário:', currentUserId);
+
+      // Limpar qualquer cache específico do usuário
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes(currentUserId)) {
+          localStorage.removeItem(key);
+          console.log(`🗑️ Store: Removido cache específico do usuário: ${key}`);
+        }
+      });
+    }
+
+    // Forçar recarregamento da página para garantir limpeza total
+    setTimeout(() => {
+      console.log('🔄 Store: Forçando recarregamento da página para limpeza total...');
+      window.location.reload();
+    }, 100);
+
+    console.log('✅ Store: Logout completo realizado');
   },
 
   // Vehicle actions - Otimizadas para evitar loading desnecessário
   fetchVehicles: async () => {
     try {
+      const { user } = get();
+      if (!user || !user.id) {
+        console.warn('⚠️ Store: Tentativa de buscar veículos sem usuário autenticado');
+        return;
+      }
+
+      console.log('🚗 Store: Buscando veículos para usuário:', user.id);
       const vehicles = await apiService.getVehicles();
-      set(state => ({ ...state, vehicles }));
+
+      // Verificar se os veículos pertencem ao usuário atual
+      const userVehicles = vehicles.filter(v => v.ownerId === user.id);
+
+      if (userVehicles.length !== vehicles.length) {
+        console.warn('⚠️ Store: Alguns veículos não pertencem ao usuário atual, filtrando...');
+      }
+
+      set(state => ({ ...state, vehicles: userVehicles }));
+      console.log(`✅ Store: ${userVehicles.length} veículos carregados`);
     } catch (error) {
-      console.error('Error fetching vehicles:', error);
+      console.error('❌ Store: Erro ao buscar veículos:', error);
     }
   },
 
   selectVehicle: async (id: string) => {
     set({ loading: true });
     try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const vehicle = await apiService.getVehicle(id);
+
+      // Verificar se o veículo pertence ao usuário
+      if (vehicle.ownerId !== user.id) {
+        throw new Error('Acesso negado: veículo não pertence ao usuário');
+      }
+
       if (vehicle) {
-        set({ selectedVehicle: vehicle, loading: false });
-        get().fetchMaintenanceServices(id);
-        get().fetchMaintenanceReminders(id);
-        get().fetchExpenses(id);
-        get().fetchVehicleStats(id);
+        set({ selectedVehicle: vehicle });
+
+        // Carregar dados em paralelo
+        console.log('🔄 Store: Carregando dados do veículo:', id);
+
+        await Promise.all([
+          get().fetchMaintenanceServices(id),
+          get().fetchMaintenanceReminders(id),
+          get().fetchExpenses(id)
+        ]);
+
+        console.log('✅ Store: Dados carregados, calculando estatísticas...');
+
+        // Calcular estatísticas após todos os dados estarem carregados
+        await get().fetchVehicleStats(id);
+
+        set({ loading: false });
       } else {
         set({ loading: false });
       }
     } catch (error) {
-      console.error('Error selecting vehicle:', error);
+      console.error('❌ Store: Erro ao selecionar veículo:', error);
       set({ loading: false });
     }
   },
@@ -325,22 +432,34 @@ export const useAppStore = create<AppState>((set, get) => ({
         throw new Error('ID do usuário inválido. Faça login novamente.');
       }
 
-      // Garantir que o ownerId está definido
+      // Garantir que o ownerId está correto
       const dataWithOwner = {
         ...vehicleData,
-        ownerId: vehicleData.ownerId || currentUser.id
+        ownerId: currentUser.id  // SEMPRE usar o usuário atual
       };
 
       console.log('🚗 Store: Dados finais:', dataWithOwner);
-      console.log('🔐 Owner ID (UUID):', dataWithOwner.ownerId);
 
       const newVehicle = await apiService.createVehicle(dataWithOwner);
       console.log('✅ Store: Veículo criado:', newVehicle);
+
+      // Verificar se o veículo retornado pertence ao usuário
+      if (newVehicle.ownerId !== currentUser.id) {
+        console.error('❌ Store: Veículo criado não pertence ao usuário atual!');
+        throw new Error('Erro de segurança: veículo não foi criado corretamente');
+      }
 
       set(state => ({
         vehicles: [...state.vehicles, newVehicle],
         loading: false
       }));
+
+      // Acionar notificação
+      const { onNotificationTrigger } = get();
+      if (onNotificationTrigger) {
+        onNotificationTrigger('vehicle', 'Veículo Cadastrado', `${newVehicle.brand} ${newVehicle.model} foi adicionado com sucesso!`);
+      }
+
       return newVehicle;
     } catch (error) {
       console.error('❌ Store: Erro ao criar veículo:', error);
@@ -352,7 +471,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateVehicleData: async (id: string, vehicleData: Partial<Vehicle>) => {
     set({ loading: true });
     try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const updatedVehicle = await apiService.updateVehicle(id, vehicleData);
+
+      // Verificar se o veículo atualizado pertence ao usuário
+      if (updatedVehicle.ownerId !== user.id) {
+        throw new Error('Erro de segurança: veículo não pertence ao usuário');
+      }
 
       set(state => ({
         vehicles: state.vehicles.map(v => v.id === id ? updatedVehicle : v),
@@ -362,7 +491,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       return updatedVehicle;
     } catch (error) {
-      console.error('Error updating vehicle:', error);
+      console.error('❌ Store: Erro ao atualizar veículo:', error);
       set({ loading: false });
       throw error;
     }
@@ -378,7 +507,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         loading: false
       }));
     } catch (error) {
-      console.error('Error deleting vehicle:', error);
+      console.error('❌ Store: Erro ao deletar veículo:', error);
       set({ loading: false });
       throw error;
     }
@@ -387,25 +516,137 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Maintenance Services
   fetchMaintenanceServices: async (vehicleId?: string) => {
     try {
-      const filters = vehicleId ? { vehicleId } : undefined;
-      const services = await apiService.getMaintenances(filters);
-      set(state => ({ ...state, maintenanceServices: services }));
+      const { user } = get();
+      if (!user || !user.id) {
+        console.warn('⚠️ Store: Tentativa de buscar manutenções sem usuário autenticado');
+        return;
+      }
+
+      console.log('🔧 Store: Buscando manutenções para usuário:', user.id);
+      const maintenances = await apiService.getMaintenances(vehicleId ? { vehicleId } : undefined);
+
+      // Verificação de segurança: filtrar apenas manutenções de veículos do usuário
+      const userVehicles = get().vehicles;
+      const userVehicleIds = userVehicles.map(v => v.id);
+
+      const userMaintenances = maintenances.filter(m => {
+        // Verificar se a manutenção pertence a um veículo do usuário
+        return userVehicleIds.includes(m.vehicleId);
+      });
+
+      if (userMaintenances.length !== maintenances.length) {
+        console.warn('🚨 Store: FILTRO DE SEGURANÇA APLICADO - Algumas manutenções não pertencem ao usuário atual!', {
+          totalRecebidas: maintenances.length,
+          totalFiltradas: userMaintenances.length,
+          usuarioAtual: user.id
+        });
+      }
+
+      set(state => ({ ...state, maintenanceServices: userMaintenances }));
+      console.log(`✅ Store: ${userMaintenances.length} manutenções carregadas para usuário ${user.email}`);
     } catch (error) {
-      console.error('Error fetching maintenance services:', error);
+      console.error('❌ Store: Erro ao buscar manutenções:', error);
     }
   },
 
   createMaintenanceService: async (serviceData) => {
     set({ loading: true });
     try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const newService = await apiService.createMaintenance(serviceData);
+
+      // Atualizar estado imediatamente
       set(state => ({
         maintenanceServices: [...state.maintenanceServices, newService],
         loading: false
       }));
+
+      // Acionar notificação
+      const { onNotificationTrigger } = get();
+      if (onNotificationTrigger) {
+        onNotificationTrigger('maintenance', 'Manutenção Agendada', `Nova manutenção "${newService.description}" foi agendada com sucesso!`);
+      }
+
+      // Atualizar todos os dados relacionados após criação da manutenção
+      setTimeout(async () => {
+        try {
+          const {
+            fetchMaintenanceServices,
+            fetchMaintenanceReminders,
+            fetchExpenses
+          } = get();
+
+          console.log('🔄 Atualizando dados após criação de manutenção...');
+
+          // Atualizar manutenções
+          await fetchMaintenanceServices();
+
+          // Atualizar lembretes (novo lembrete foi criado automaticamente)
+          await fetchMaintenanceReminders();
+
+          // Atualizar despesas (nova despesa pode ter sido criada)
+          await fetchExpenses();
+
+          console.log('✅ Dados atualizados com sucesso após criação de manutenção');
+        } catch (error) {
+          console.warn('⚠️ Aviso: Nem todos os dados puderam ser sincronizados:', error);
+        }
+      }, 1000);
+
       return newService;
     } catch (error) {
-      console.error('Error creating maintenance service:', error);
+      console.error('❌ Store: Erro ao criar manutenção:', error);
+      set({ loading: false });
+      throw error;
+    }
+  },
+
+  updateMaintenanceService: async (id: string, data: Partial<MaintenanceService>) => {
+    set({ loading: true });
+    try {
+      const updatedService = await apiService.updateMaintenance(id, data);
+
+      set(state => ({
+        maintenanceServices: state.maintenanceServices.map(service =>
+          service.id === id ? updatedService : service
+        ),
+        loading: false
+      }));
+
+      // Refresh expenses if maintenance was completed (may have created new expense)
+      if (data.status === 'COMPLETED') {
+        setTimeout(async () => {
+          try {
+            const refreshedExpenses = await apiService.getExpenses();
+            set(state => ({ ...state, expenses: refreshedExpenses }));
+          } catch (error) {
+            console.warn('Aviso: Não foi possível sincronizar despesas:', error);
+          }
+        }, 500);
+      }
+
+      return updatedService;
+    } catch (error) {
+      console.error('❌ Store: Erro ao atualizar manutenção:', error);
+      set({ loading: false });
+      throw error;
+    }
+  },
+
+  deleteMaintenanceService: async (id: string) => {
+    set({ loading: true });
+    try {
+      await apiService.deleteMaintenance(id);
+      set(state => ({
+        maintenanceServices: state.maintenanceServices.filter(service => service.id !== id),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('❌ Store: Erro ao deletar manutenção:', error);
       set({ loading: false });
       throw error;
     }
@@ -414,25 +655,62 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Maintenance Reminders
   fetchMaintenanceReminders: async (vehicleId?: string) => {
     try {
-      const filters = vehicleId ? { vehicleId } : undefined;
-      const reminders = await apiService.getReminders(filters);
-      set(state => ({ ...state, maintenanceReminders: reminders }));
+      const { user } = get();
+      if (!user || !user.id) {
+        console.warn('⚠️ Store: Tentativa de buscar lembretes sem usuário autenticado');
+        return;
+      }
+
+      console.log('⏰ Store: Buscando lembretes para usuário:', user.id);
+      const reminders = await apiService.getReminders(vehicleId ? { vehicleId } : undefined);
+
+      // Verificação de segurança: filtrar apenas lembretes de veículos do usuário
+      const userVehicles = get().vehicles;
+      const userVehicleIds = userVehicles.map(v => v.id);
+
+      const userReminders = reminders.filter(r => {
+        // Verificar se o lembrete pertence a um veículo do usuário
+        return userVehicleIds.includes(r.vehicleId);
+      });
+
+      if (userReminders.length !== reminders.length) {
+        console.warn('🚨 Store: FILTRO DE SEGURANÇA APLICADO - Alguns lembretes não pertencem ao usuário atual!', {
+          totalRecebidos: reminders.length,
+          totalFiltrados: userReminders.length,
+          usuarioAtual: user.id
+        });
+      }
+
+      set(state => ({ ...state, maintenanceReminders: userReminders }));
+      console.log(`✅ Store: ${userReminders.length} lembretes carregados para usuário ${user.email}`);
     } catch (error) {
-      console.error('Error fetching maintenance reminders:', error);
+      console.error('❌ Store: Erro ao buscar lembretes:', error);
     }
   },
 
   createMaintenanceReminder: async (reminderData) => {
     set({ loading: true });
     try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const newReminder = await apiService.createReminder(reminderData);
       set(state => ({
         maintenanceReminders: [...state.maintenanceReminders, newReminder],
         loading: false
       }));
+
+      // Acionar notificação
+      const { onNotificationTrigger } = get();
+      if (onNotificationTrigger) {
+        onNotificationTrigger('reminders', 'Lembrete Criado', `Novo lembrete "${newReminder.description}" foi criado com sucesso!`);
+      }
+
       return newReminder;
     } catch (error) {
-      console.error('Error creating maintenance reminder:', error);
+      console.error('❌ Store: Erro ao criar lembrete:', error);
       set({ loading: false });
       throw error;
     }
@@ -442,14 +720,38 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ loading: true });
     try {
       await apiService.completeReminder(id);
+
+      // Atualizar estado local marcando como completo
       set(state => ({
         maintenanceReminders: state.maintenanceReminders.map(r =>
           r.id === id ? { ...r, completed: true } : r
         ),
         loading: false
       }));
+
+      // Recarregar dados do servidor para garantir sincronização
+      const { fetchMaintenanceReminders } = get();
+      setTimeout(() => {
+        fetchMaintenanceReminders();
+      }, 500);
+
     } catch (error) {
-      console.error('Error completing reminder:', error);
+      console.error('❌ Store: Erro ao completar lembrete:', error);
+      set({ loading: false });
+      throw error;
+    }
+  },
+
+  deleteMaintenanceReminder: async (id: string) => {
+    set({ loading: true });
+    try {
+      await apiService.deleteReminder(id);
+      set(state => ({
+        maintenanceReminders: state.maintenanceReminders.filter(r => r.id !== id),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('❌ Store: Erro ao deletar lembrete:', error);
       set({ loading: false });
       throw error;
     }
@@ -458,25 +760,93 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Expenses
   fetchExpenses: async (vehicleId?: string) => {
     try {
+      const { user } = get();
+      if (!user || !user.id) {
+        console.warn('⚠️ Store: Tentativa de buscar despesas sem usuário autenticado');
+        return;
+      }
+
+      console.log('💰 Store: Buscando despesas para usuário:', user.id);
       const filters = vehicleId ? { vehicleId } : undefined;
       const expenses = await apiService.getExpenses(filters);
-      set(state => ({ ...state, expenses }));
+
+      // Verificação de segurança: filtrar apenas despesas de veículos do usuário
+      const userVehicles = get().vehicles;
+      const userVehicleIds = userVehicles.map(v => v.id);
+
+      const userExpenses = expenses.filter(e => {
+        // Verificar se a despesa pertence a um veículo do usuário
+        return userVehicleIds.includes(e.vehicleId);
+      });
+
+      if (userExpenses.length !== expenses.length) {
+        console.warn('🚨 Store: FILTRO DE SEGURANÇA APLICADO - Algumas despesas não pertencem ao usuário atual!', {
+          totalRecebidas: expenses.length,
+          totalFiltradas: userExpenses.length,
+          usuarioAtual: user.id
+        });
+      }
+
+      set(state => ({ ...state, expenses: userExpenses }));
+      console.log(`✅ Store: ${userExpenses.length} despesas carregadas para usuário ${user.email}`);
     } catch (error) {
-      console.error('Error fetching expenses:', error);
+      console.error('❌ Store: Erro ao buscar despesas:', error);
     }
   },
 
   createExpense: async (expenseData) => {
     set({ loading: true });
     try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const newExpense = await apiService.createExpense(expenseData);
-      set(state => ({
-        expenses: [...state.expenses, newExpense],
-        loading: false
-      }));
+
+      // Atualizar estado imediatamente
+      set(state => {
+        const updatedExpenses = [...state.expenses, newExpense];
+        return {
+          expenses: updatedExpenses,
+          loading: false
+        };
+      });
+
+      // Acionar notificação
+      const { onNotificationTrigger } = get();
+      if (onNotificationTrigger) {
+        onNotificationTrigger('expenses', 'Despesa Registrada', `Nova despesa "${newExpense.description}" de R$ ${newExpense.amount.toFixed(2)} foi registrada!`);
+      }
+
+      // Force refresh dos dados do servidor para garantir sincronização
+      setTimeout(async () => {
+        try {
+          const refreshedExpenses = await apiService.getExpenses();
+          set(state => ({ ...state, expenses: refreshedExpenses }));
+        } catch (error) {
+          console.warn('Aviso: Não foi possível sincronizar despesas:', error);
+        }
+      }, 500);
+
       return newExpense;
     } catch (error) {
-      console.error('Error creating expense:', error);
+      console.error('❌ Store: Erro ao criar despesa:', error);
+      set({ loading: false });
+      throw error;
+    }
+  },
+
+  deleteExpense: async (id: string) => {
+    set({ loading: true });
+    try {
+      await apiService.deleteExpense(id);
+      set(state => ({
+        expenses: state.expenses.filter(e => e.id !== id),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('❌ Store: Erro ao deletar despesa:', error);
       set({ loading: false });
       throw error;
     }
@@ -486,16 +856,76 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchVehicleStats: async (vehicleId: string) => {
     set({ loading: true });
     try {
-      // Mock implementation - replace with actual API call when available
+      const { user, expenses, maintenanceServices, maintenanceReminders } = get();
+
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // Filtrar dados específicos do veículo
+      const vehicleExpenses = expenses.filter(e => e.vehicleId === vehicleId);
+      const vehicleMaintenances = maintenanceServices.filter(m => m.vehicleId === vehicleId);
+      const vehicleReminders = maintenanceReminders.filter(r => r.vehicleId === vehicleId);
+
+      // Calcular estatísticas básicas
+      const totalExpenses = vehicleExpenses.reduce((sum, e) => sum + e.amount, 0);
+      const expenseCount = vehicleExpenses.length;
+      const averageExpense = expenseCount > 0 ? totalExpenses / expenseCount : 0;
+      const totalMaintenance = vehicleMaintenances.length;
+      const upcomingMaintenance = vehicleMaintenances.filter(m => m.status === 'SCHEDULED').length;
+
+      // Calcular despesas por categoria
+      const expensesByCategory = vehicleExpenses.reduce((acc, expense) => {
+        const category = expense.category || 'OTHER';
+        acc[category] = (acc[category] || 0) + expense.amount;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Calcular despesas mensais (últimos 12 meses)
+      const now = new Date();
+      const monthlyExpenses: Array<{ month: string; amount: number }> = [];
+
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = date.toLocaleDateString('pt-BR', {
+          month: 'short',
+          year: 'numeric'
+        });
+
+        const monthExpenses = vehicleExpenses.filter(expense => {
+          const expenseDate = new Date(expense.date);
+          return expenseDate.getMonth() === date.getMonth() &&
+            expenseDate.getFullYear() === date.getFullYear();
+        });
+
+        const totalAmount = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+        monthlyExpenses.push({ month: monthKey, amount: totalAmount });
+      }
+
+      // Calcular despesas do último mês
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthExpenses = vehicleExpenses.filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate.getMonth() === lastMonth.getMonth() &&
+          expenseDate.getFullYear() === lastMonth.getFullYear();
+      }).reduce((sum, e) => sum + e.amount, 0);
+
       const stats = {
-        totalMaintenances: 0,
-        totalExpenses: 0,
-        upcomingReminders: 0,
-        lastMaintenanceDate: null
+        totalExpenses,
+        expenseCount,
+        averageExpense,
+        totalMaintenance,
+        upcomingMaintenance,
+        lastMonthExpenses,
+        expensesByCategory,
+        monthlyExpenses
       };
+
+      console.log('📊 Store: Estatísticas calculadas para veículo:', vehicleId, stats);
+
       set({ vehicleStats: stats, loading: false });
     } catch (error) {
-      console.error('Error fetching vehicle stats:', error);
+      console.error('❌ Store: Erro ao buscar estatísticas:', error);
       set({ loading: false });
     }
   },

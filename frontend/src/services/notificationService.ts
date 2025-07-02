@@ -84,7 +84,7 @@ class NotificationService {
             const queryString = params.toString();
             const url = `/notifications${queryString ? `?${queryString}` : ''}`;
 
-            const response = await api['api'].get(url);
+            const response = await api.apiInstance.get(url);
 
             console.log('✅ Notificações carregadas:', response.data);
 
@@ -98,15 +98,15 @@ class NotificationService {
         } catch (error) {
             console.error('❌ Erro ao buscar notificações:', error);
 
-            // Retornar dados mock em caso de erro para não quebrar a UI
-            return this.getMockNotifications();
+            // Retornar array vazio em caso de erro (sem mock)
+            return [];
         }
     }
 
     // Buscar apenas notificações não lidas
     async getUnreadNotifications(): Promise<Notification[]> {
         try {
-            const response = await api['api'].get('/notifications/unread');
+            const response = await api.apiInstance.get('/notifications/unread');
             return response.data.notifications || response.data;
         } catch (error) {
             console.error('❌ Erro ao buscar notificações não lidas:', error);
@@ -140,7 +140,7 @@ class NotificationService {
     async deleteNotification(notificationId: string): Promise<void> {
         try {
             console.log('🗑️ Deletando notificação:', notificationId);
-            await api['api'].delete(`/notifications/${notificationId}`);
+            await api.apiInstance.delete(`/notifications/${notificationId}`);
         } catch (error) {
             console.error('❌ Erro ao deletar notificação:', error);
             throw error;
@@ -195,10 +195,90 @@ class NotificationService {
                 read: false,
                 createdAt: new Date(Date.now() - 172800000).toISOString(),
                 userId: 'current-user'
+            },
+            {
+                id: 'mock-4',
+                title: 'Sistema AutoManutenção',
+                message: 'Bem-vindo ao sistema! Cadastre seus veículos para começar.',
+                category: 'system',
+                channel: 'IN_APP',
+                read: false,
+                createdAt: new Date(Date.now() - 300000).toISOString(),
+                userId: 'current-user'
+            },
+            {
+                id: 'mock-5',
+                title: 'Próxima Revisão',
+                message: 'Sua próxima revisão está agendada para a próxima semana.',
+                category: 'maintenance',
+                channel: 'IN_APP',
+                read: false,
+                createdAt: new Date(Date.now() - 7200000).toISOString(),
+                userId: 'current-user'
             }
         ];
+    }
+
+    // Método para verificar se notificações estão habilitadas
+    isNotificationEnabled(): boolean {
+        return 'Notification' in window && Notification.permission === 'granted';
+    }
+
+    // Método para se inscrever em notificações push
+    async subscribeToPushNotifications(): Promise<boolean> {
+        try {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                return permission === 'granted';
+            }
+            return false;
+        } catch (error) {
+            console.error('❌ Erro ao ativar notificações push:', error);
+            return false;
+        }
+    }
+
+    // Método para mostrar notificação local
+    showLocalNotification(title: string, options?: {
+        body?: string;
+        icon?: string;
+    }) {
+        try {
+            if (this.isNotificationEnabled()) {
+                new Notification(title, {
+                    body: options?.body || '',
+                    icon: options?.icon || '/favicon.ico'
+                });
+            }
+        } catch (error) {
+            console.error('❌ Erro ao mostrar notificação local:', error);
+        }
+    }
+
+    // Método para testar notificação push
+    async testPushNotification(): Promise<void> {
+        try {
+            this.showLocalNotification('Teste de Notificação', {
+                body: 'Esta é uma notificação de teste do sistema AutoManutenção!'
+            });
+        } catch (error) {
+            console.error('❌ Erro ao testar notificação:', error);
+        }
+    }
+
+    // Verificar notificações imediatas
+    async checkImmediate(): Promise<void> {
+        try {
+            console.log('🔍 Solicitando verificação de notificações imediatas...');
+            await api.apiInstance.post('/notifications/check-immediate');
+            console.log('✅ Verificação de notificações imediatas solicitada');
+        } catch (error) {
+            console.error('❌ Erro ao verificar notificações imediatas:', error);
+            throw error;
+        }
     }
 }
 
 // Export singleton instance
 export const notificationService = new NotificationService();
+export default notificationService;

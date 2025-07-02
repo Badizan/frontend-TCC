@@ -2,19 +2,21 @@ import React from 'react';
 import { MaintenanceReminder } from '../../types';
 import { format, isAfter, differenceInDays, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
+import { CheckCircle, AlertTriangle, AlertCircle, Clock, Trash2 } from 'lucide-react';
+import { parseLocalDate, formatDate } from '../../utils/formatters';
 
 interface RemindersListProps {
   reminders: MaintenanceReminder[];
   onComplete: (id: string) => void;
+  onDelete?: (reminder: MaintenanceReminder) => void;
   getVehicleName?: (vehicleId: string) => string;
 }
 
-export const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, getVehicleName }) => {
+export const RemindersList: React.FC<RemindersListProps> = ({ reminders, onComplete, onDelete, getVehicleName }) => {
   const getSeverity = (dueDate?: Date | string) => {
     if (!dueDate) return 'normal';
     
-    const date = new Date(dueDate);
+    const date = parseLocalDate(dueDate.toString());
     if (!isValid(date)) return 'normal';
     
     const today = new Date();
@@ -27,7 +29,7 @@ export const RemindersList: React.FC<RemindersListProps> = ({ reminders, onCompl
   };
   
   const getStatusInfo = (reminder: MaintenanceReminder) => {
-    if (reminder.isCompleted) {
+    if (reminder.completed) {
       return {
         icon: <CheckCircle className="w-5 h-5 text-green-700" />,
         textColor: 'text-green-700',
@@ -80,11 +82,9 @@ export const RemindersList: React.FC<RemindersListProps> = ({ reminders, onCompl
     }
   };
 
-  const formatDate = (dateStr: string | Date) => {
+  const formatReminderDate = (dateStr: string | Date) => {
     try {
-      const date = new Date(dateStr);
-      if (!isValid(date)) return 'Data inválida';
-      return format(date, 'dd/MM/yyyy', { locale: ptBR });
+      return formatDate(dateStr);
     } catch (error) {
       return 'Data inválida';
     }
@@ -98,7 +98,7 @@ export const RemindersList: React.FC<RemindersListProps> = ({ reminders, onCompl
         </div>
         <p className="text-gray-500">Nenhum lembrete cadastrado.</p>
         <p className="text-sm text-gray-400 mt-1">
-          Crie lembretes para não esquecer das manutenções.
+          Lembretes são criados automaticamente ao agendar manutenções.
         </p>
       </div>
     );
@@ -144,7 +144,7 @@ export const RemindersList: React.FC<RemindersListProps> = ({ reminders, onCompl
               <div className="mt-2 flex items-center text-xs text-gray-500 space-x-4">
                 {reminder.dueDate && (
                   <span>
-                    📅 {formatDate(reminder.dueDate)}
+                    📅 {formatReminderDate(reminder.dueDate)}
                   </span>
                 )}
                 
@@ -156,14 +156,26 @@ export const RemindersList: React.FC<RemindersListProps> = ({ reminders, onCompl
               </div>
             </div>
             
-            {!reminder.isCompleted && !reminder.completed && (
-              <button
-                onClick={() => onComplete(reminder.id)}
-                className="ml-4 bg-white text-blue-600 border border-blue-600 hover:bg-blue-50 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Concluir
-              </button>
-            )}
+            <div className="ml-4 flex items-center space-x-2">
+              {!reminder.completed && (
+                <button
+                  onClick={() => onComplete(reminder.id)}
+                  className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-50 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Concluir
+                </button>
+              )}
+              
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(reminder)}
+                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                  title="Excluir lembrete"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </li>
         );
       })}

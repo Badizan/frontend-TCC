@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client'
+import { NotificationService } from './notification.service'
 
 const prisma = new PrismaClient()
+const notificationService = new NotificationService()
 
 export class ExpenseService {
     async create(data: {
@@ -10,14 +12,37 @@ export class ExpenseService {
         amount: number
         date: Date
     }) {
-        return await prisma.expense.create({
+        const expense = await prisma.expense.create({
             data,
             include: {
                 vehicle: {
-                    select: { id: true, brand: true, model: true, licensePlate: true }
+                    select: { id: true, brand: true, model: true, licensePlate: true, ownerId: true }
                 }
             }
         })
+
+        // Criar notificação para o proprietário do veículo
+        try {
+            await notificationService.createNotification({
+                userId: expense.vehicle.ownerId,
+                type: 'EXPENSE_CREATED',
+                title: 'Nova Despesa Registrada',
+                message: `Despesa de ${data.category} no valor de R$ ${data.amount.toFixed(2)} foi registrada para o veículo ${expense.vehicle.brand} ${expense.vehicle.model} (${expense.vehicle.licensePlate}).`,
+                data: {
+                    expenseId: expense.id,
+                    vehicleId: expense.vehicleId,
+                    category: data.category,
+                    amount: data.amount,
+                    description: data.description
+                },
+                category: 'expenses',
+                channel: 'IN_APP'
+            })
+        } catch (error) {
+            console.error('❌ Erro ao criar notificação de despesa:', error)
+        }
+
+        return expense
     }
 
     async findAll(filters?: {
@@ -27,13 +52,17 @@ export class ExpenseService {
         startDate?: Date
         endDate?: Date
     }) {
+        console.log('💰 ExpenseService: Buscando despesas com filtros:', filters);
+
         const where: any = {}
 
         // Filtrar por veículo específico OU lista de veículos
         if (filters?.vehicleId) {
             where.vehicleId = filters.vehicleId
+            console.log('💰 ExpenseService: Filtrando por veículo específico:', filters.vehicleId);
         } else if (filters?.vehicleIds && filters.vehicleIds.length > 0) {
             where.vehicleId = { in: filters.vehicleIds }
+            console.log('💰 ExpenseService: Filtrando por lista de veículos:', filters.vehicleIds.length, 'veículos');
         }
 
         if (filters?.category) where.category = filters.category
@@ -43,15 +72,29 @@ export class ExpenseService {
             if (filters.endDate) where.date.lte = filters.endDate
         }
 
-        return await prisma.expense.findMany({
+        const expenses = await prisma.expense.findMany({
             where,
             include: {
                 vehicle: {
-                    select: { id: true, brand: true, model: true, licensePlate: true }
+                    select: { id: true, brand: true, model: true, licensePlate: true, ownerId: true }
                 }
             },
             orderBy: { date: 'desc' }
-        })
+        });
+
+        // Verificação de segurança: registrar ownerIds únicos
+        const ownerIds = new Set(expenses.map(e => e.vehicle.ownerId));
+        if (ownerIds.size > 1) {
+            console.warn('🚨 ExpenseService: MÚLTIPLOS PROPRIETÁRIOS DETECTADOS nas despesas retornadas!', {
+                totalDespesas: expenses.length,
+                proprietariosUnicos: ownerIds.size,
+                proprietarios: Array.from(ownerIds),
+                filtrosUsados: filters
+            });
+        }
+
+        console.log(`✅ ExpenseService: ${expenses.length} despesas encontradas, ${ownerIds.size} proprietário(s) único(s)`);
+        return expenses;
     }
 
     async findById(id: string) {

@@ -39,11 +39,23 @@ export const ExpenseChart: React.FC<ExpenseChartProps> = ({ data }) => {
   });
 
   useEffect(() => {
+    console.log('📊 ExpenseChart: Dados recebidos:', data);
+    
     // Add safety checks for data
     const safeData = data || [];
-    const validData = safeData.filter(item => item && item.month && typeof item.amount === 'number');
+    console.log('📊 ExpenseChart: Dados seguros:', safeData);
     
-    setChartData({
+    const validData = safeData.filter(item => {
+      const isValid = item && item.month && typeof item.amount === 'number';
+      if (!isValid) {
+        console.warn('📊 ExpenseChart: Item inválido:', item);
+      }
+      return isValid;
+    });
+    
+    console.log('📊 ExpenseChart: Dados válidos:', validData);
+    
+    const newChartData = {
       labels: validData.map((item) => item.month),
       datasets: [
         {
@@ -55,15 +67,34 @@ export const ExpenseChart: React.FC<ExpenseChartProps> = ({ data }) => {
           borderRadius: 4,
         },
       ],
-    });
+    };
+    
+    console.log('📊 ExpenseChart: Chart data gerado:', newChartData);
+    setChartData(newChartData);
   }, [data]);
 
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    layout: {
+      padding: {
+        top: 20,
+        bottom: 20,
+        left: 10,
+        right: 10
+      }
+    },
     plugins: {
       legend: {
-        display: false,
+        display: true,
+        position: 'top' as const,
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          font: {
+            size: 12
+          }
+        }
       },
       tooltip: {
         callbacks: {
@@ -84,12 +115,28 @@ export const ExpenseChart: React.FC<ExpenseChartProps> = ({ data }) => {
       },
     },
     scales: {
+      x: {
+        ticks: {
+          maxRotation: 45,
+          font: {
+            size: 11
+          }
+        }
+      },
       y: {
         beginAtZero: true,
         ticks: {
           callback: function (value: any) {
-            return 'R$ ' + value;
+            return new Intl.NumberFormat('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0
+            }).format(value);
           },
+          font: {
+            size: 11
+          }
         },
       },
     },
@@ -100,15 +147,28 @@ export const ExpenseChart: React.FC<ExpenseChartProps> = ({ data }) => {
     return (
       <div className="h-64 flex items-center justify-center text-gray-500">
         <div className="text-center">
-          <p className="text-lg font-medium">Nenhum dado disponível</p>
-          <p className="text-sm">Adicione algumas despesas para ver o gráfico</p>
+          <p className="text-lg font-medium">📊 Nenhum dado de despesa disponível</p>
+          <p className="text-sm">Crie algumas despesas via manutenções para ver o gráfico</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if all amounts are zero
+  const hasNonZeroData = chartData.datasets[0]?.data?.some((amount: number) => amount > 0);
+  if (!hasNonZeroData) {
+    return (
+      <div className="h-64 flex items-center justify-center text-gray-500">
+        <div className="text-center">
+          <p className="text-lg font-medium">📈 Sem gastos registrados</p>
+          <p className="text-sm">Agende manutenções com custo para gerar dados no gráfico</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-64">
+    <div className="h-80">
       <Bar data={chartData} options={options} />
     </div>
   );

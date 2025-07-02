@@ -3,6 +3,7 @@ import { BaseController } from './base.controller';
 import { ReminderService } from '../services/reminder.service';
 import { VehicleService } from '../services/vehicle.service';
 import { z } from 'zod';
+import { parseLocalDate } from '../utils/dateParser';
 
 const reminderService = new ReminderService();
 const vehicleService = new VehicleService();
@@ -11,7 +12,7 @@ const createReminderSchema = z.object({
   vehicleId: z.string().uuid('Invalid vehicle ID'),
   description: z.string().min(1, 'Description is required'),
   type: z.enum(['TIME_BASED', 'MILEAGE_BASED', 'HYBRID']).default('TIME_BASED'),
-  dueDate: z.string().transform(str => new Date(str)).optional(),
+  dueDate: z.string().transform(str => parseLocalDate(str)).optional(),
   dueMileage: z.number().positive().optional(),
   intervalDays: z.number().positive().optional(),
   intervalMileage: z.number().positive().optional(),
@@ -21,7 +22,7 @@ const createReminderSchema = z.object({
 const updateReminderSchema = z.object({
   description: z.string().min(1).optional(),
   type: z.enum(['TIME_BASED', 'MILEAGE_BASED', 'HYBRID']).optional(),
-  dueDate: z.string().transform(str => new Date(str)).optional(),
+  dueDate: z.string().transform(str => parseLocalDate(str)).optional(),
   dueMileage: z.number().positive().optional(),
   intervalDays: z.number().positive().optional(),
   intervalMileage: z.number().positive().optional(),

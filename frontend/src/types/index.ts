@@ -91,7 +91,6 @@ export interface MaintenanceReminder {
   description: string;
   dueDate?: Date;
   dueMileage?: number;
-  isCompleted: boolean;
   completed: boolean;
   createdAt: Date;
   updatedAt: Date;

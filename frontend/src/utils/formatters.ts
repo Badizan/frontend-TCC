@@ -4,7 +4,7 @@ export const formatDate = (date: string | Date | null | undefined): string => {
     if (!date) return '-';
 
     try {
-        const dateObj = typeof date === 'string' ? new Date(date) : date;
+        const dateObj = typeof date === 'string' ? parseLocalDate(date) : date;
         if (isNaN(dateObj.getTime())) return '-';
 
         return dateObj.toLocaleDateString('pt-BR');
@@ -17,7 +17,7 @@ export const formatDateTime = (date: string | Date | null | undefined): string =
     if (!date) return '-';
 
     try {
-        const dateObj = typeof date === 'string' ? new Date(date) : date;
+        const dateObj = typeof date === 'string' ? parseLocalDate(date) : date;
         if (isNaN(dateObj.getTime())) return '-';
 
         return dateObj.toLocaleString('pt-BR');
@@ -26,16 +26,57 @@ export const formatDateTime = (date: string | Date | null | undefined): string =
     }
 };
 
+// Função para obter data no formato YYYY-MM-DD preservando timezone local
+export const getLocalDateString = (date?: Date): string => {
+    const dateObj = date || new Date();
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Função para obter data máxima (hoje) no formato YYYY-MM-DD preservando timezone local
+export const getTodayString = (): string => {
+    return getLocalDateString(new Date());
+};
+
+// Função para converter string de data local em Date object
+export const parseLocalDate = (dateString: string): Date => {
+    if (!dateString) return new Date();
+
+    // Se a string já tem informação de timezone, usa como está
+    // Verifica se é ISO string com timezone (ex: 2024-01-02T10:30:00Z ou 2024-01-02T10:30:00-03:00)
+    if (dateString.includes('T') && (dateString.includes('Z') || dateString.includes('+') || dateString.lastIndexOf('-') > dateString.indexOf('T'))) {
+        return new Date(dateString);
+    }
+
+    // Para strings no formato YYYY-MM-DD, cria data local correta
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateString.split('-').map(Number);
+        if (year && month && day) {
+            return new Date(year, month - 1, day);
+        }
+    }
+
+    // Se já é uma data válida, retorna como está
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+        return date;
+    }
+
+    return new Date();
+};
+
 export const formatCurrency = (amount: number | null | undefined): string => {
     if (!amount && amount !== 0) return 'R$ 0,00';
 
     try {
-        return `R$ ${amount.toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        })}`;
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(amount);
     } catch (error) {
-        return 'R$ 0,00';
+        return `R$ ${amount}`;
     }
 };
 

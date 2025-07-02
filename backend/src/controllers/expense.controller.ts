@@ -3,6 +3,7 @@ import { BaseController } from './base.controller';
 import { ExpenseService } from '../services/expense.service';
 import { VehicleService } from '../services/vehicle.service';
 import { z } from 'zod';
+import { parseLocalDate } from '../utils/dateParser';
 
 const expenseService = new ExpenseService();
 const vehicleService = new VehicleService();
@@ -12,14 +13,14 @@ const createExpenseSchema = z.object({
     description: z.string().min(1, 'Description is required'),
     category: z.string().min(1, 'Category is required'),
     amount: z.number().positive('Amount must be positive'),
-    date: z.string().transform(str => new Date(str))
+    date: z.string().transform(str => parseLocalDate(str))
 });
 
 const updateExpenseSchema = z.object({
     description: z.string().min(1).optional(),
     category: z.string().min(1).optional(),
     amount: z.number().positive().optional(),
-    date: z.string().transform(str => new Date(str)).optional()
+    date: z.string().transform(str => parseLocalDate(str)).optional()
 });
 
 export class ExpenseController extends BaseController {
@@ -75,8 +76,8 @@ export class ExpenseController extends BaseController {
             }
 
             if (category) filters.category = category;
-            if (startDate) filters.startDate = new Date(startDate);
-            if (endDate) filters.endDate = new Date(endDate);
+            if (startDate) filters.startDate = parseLocalDate(startDate);
+            if (endDate) filters.endDate = parseLocalDate(endDate);
 
             const expenses = await expenseService.findAll(filters);
             return this.sendResponse(reply, expenses);
