@@ -12,7 +12,6 @@ interface MileageNotificationProps {
     targetMileage: number;
   };
   onClose?: () => void;
-  onAction?: () => void;
 }
 
 export const MileageNotification: React.FC<MileageNotificationProps> = ({
@@ -20,8 +19,7 @@ export const MileageNotification: React.FC<MileageNotificationProps> = ({
   title,
   message,
   vehicleInfo,
-  onClose,
-  onAction
+  onClose
 }) => {
   const getIcon = () => {
     switch (type) {
@@ -150,25 +148,7 @@ export const MileageNotification: React.FC<MileageNotificationProps> = ({
         </div>
       )}
 
-      {/* Action button */}
-      {onAction && (
-        <div className="mt-3 flex justify-end">
-          <button
-            onClick={onAction}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-              type === 'alert' 
-                ? 'bg-red-600 text-white hover:bg-red-700'
-                : type === 'warning'
-                ? 'bg-yellow-600 text-white hover:bg-yellow-700'
-                : type === 'success'
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            Ver Detalhes
-          </button>
-        </div>
-      )}
+
     </div>
   );
 };

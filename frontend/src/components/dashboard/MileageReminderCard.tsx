@@ -83,18 +83,6 @@ export const MileageReminderCard: React.FC<MileageReminderCardProps> = ({
               targetMileage: formData.dueMileage
             }}
             onClose={() => toast.dismiss(t.id)}
-            onAction={() => {
-              toast.dismiss(t.id);
-              // Fechar formulário e recarregar
-              setShowForm(false);
-              setFormData({
-                description: '',
-                dueMileage: currentMileage + 1000,
-                intervalMileage: 1000,
-                recurring: false
-              });
-              loadReminders();
-            }}
           />
         ),
         {

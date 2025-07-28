@@ -75,11 +75,6 @@ export const useMileageNotifications = () => {
             toast.dismiss(t.id);
             setNotifications(prev => prev.filter(n => n.id !== reminder.id));
           }}
-          onAction={() => {
-            toast.dismiss(t.id);
-            // Aqui você pode adicionar navegação para a página do veículo
-            window.location.href = `/vehicles/${vehicle.id}`;
-          }}
         />
       ),
       {
@@ -111,10 +106,6 @@ export const useMileageNotifications = () => {
           }}
           onClose={() => {
             toast.dismiss(t.id);
-          }}
-          onAction={() => {
-            toast.dismiss(t.id);
-            window.location.href = `/vehicles/${vehicle.id}`;
           }}
         />
       ),
@@ -151,10 +142,6 @@ export const useMileageNotifications = () => {
           }}
           onClose={() => {
             toast.dismiss(t.id);
-          }}
-          onAction={() => {
-            toast.dismiss(t.id);
-            window.location.href = `/vehicles/${vehicle.id}`;
           }}
         />
       ),
