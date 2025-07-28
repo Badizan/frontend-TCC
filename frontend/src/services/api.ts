@@ -29,13 +29,13 @@ export class ApiService {
                 if (token) {
                     config.headers.Authorization = `Bearer ${token}`;
                 }
-                
+
                 // Adicionar cabeçalhos para evitar cache
                 config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
                 config.headers['Pragma'] = 'no-cache';
                 config.headers['Expires'] = '0';
                 config.headers['X-Requested-With'] = 'XMLHttpRequest';
-                
+
                 console.log('🌐 API Request:', config.method?.toUpperCase(), config.url, {
                     hasToken: !!token,
                     userId: this.currentUserId
@@ -88,24 +88,24 @@ export class ApiService {
     // Função para limpar completamente todos os dados e cache
     clearAllCache(): void {
         console.log('🧹 ApiService: Iniciando limpeza completa...');
-        
+
         // Limpar dados de usuário atual
         this.currentUserId = null;
-        
+
         // Limpar token
         this.clearToken();
 
         // Limpar localStorage de forma mais agressiva
         const keysToRemove: string[] = [];
         Object.keys(localStorage).forEach(key => {
-            if (key.includes('auth') || 
-                key.includes('token') || 
-                key.includes('user') || 
-                key.includes('vehicle') || 
-                key.includes('maintenance') || 
-                key.includes('expense') || 
-                key.includes('reminder') || 
-                key.includes('cache') || 
+            if (key.includes('auth') ||
+                key.includes('token') ||
+                key.includes('user') ||
+                key.includes('vehicle') ||
+                key.includes('maintenance') ||
+                key.includes('expense') ||
+                key.includes('reminder') ||
+                key.includes('cache') ||
                 key.includes('data')) {
                 keysToRemove.push(key);
             }
@@ -229,9 +229,9 @@ export class ApiService {
                     'Expires': '0'
                 }
             });
-            
+
             const userProfile = response.data;
-            
+
             if (!userProfile || !userProfile.id) {
                 throw new Error('Perfil de usuário inválido recebido');
             }
@@ -284,9 +284,9 @@ export class ApiService {
                     'Expires': '0'
                 }
             });
-            
+
             const vehicles = response.data;
-            
+
             // Validar se todos os veículos pertencem ao usuário atual
             if (this.currentUserId) {
                 const userVehicles = vehicles.filter((v: Vehicle) => v.ownerId === this.currentUserId);
@@ -295,7 +295,7 @@ export class ApiService {
                     return userVehicles;
                 }
             }
-            
+
             console.log(`✅ API: ${vehicles.length} veículos carregados`);
             return vehicles;
         } catch (error: any) {
@@ -309,12 +309,12 @@ export class ApiService {
             console.log('🚗 API: Buscando veículo:', id);
             const response = await this.api.get(`/vehicles/${id}`);
             const vehicle = response.data;
-            
+
             // Validar se o veículo pertence ao usuário atual
             if (this.currentUserId && vehicle.ownerId !== this.currentUserId) {
                 throw new Error('Acesso negado: veículo não pertence ao usuário atual');
             }
-            
+
             console.log('✅ API: Veículo carregado:', vehicle.brand, vehicle.model);
             return vehicle;
         } catch (error: any) {
@@ -326,21 +326,21 @@ export class ApiService {
     async createVehicle(vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>): Promise<Vehicle> {
         try {
             console.log('🚗 API: Criando veículo:', vehicle);
-            
+
             // Validar se o ownerId está correto
             if (this.currentUserId && vehicle.ownerId !== this.currentUserId) {
                 console.warn('⚠️ API: ownerId corrigido para usuário atual');
                 vehicle.ownerId = this.currentUserId;
             }
-            
+
             const response = await this.api.post('/vehicles', vehicle);
             const newVehicle = response.data;
-            
+
             // Validar se o veículo criado pertence ao usuário atual
             if (this.currentUserId && newVehicle.ownerId !== this.currentUserId) {
                 throw new Error('Erro de segurança: veículo criado não pertence ao usuário atual');
             }
-            
+
             console.log('✅ API: Veículo criado:', newVehicle.brand, newVehicle.model);
             return newVehicle;
         } catch (error: any) {
@@ -354,12 +354,12 @@ export class ApiService {
             console.log('🚗 API: Atualizando veículo:', id);
             const response = await this.api.put(`/vehicles/${id}`, vehicle);
             const updatedVehicle = response.data;
-            
+
             // Validar se o veículo atualizado pertence ao usuário atual
             if (this.currentUserId && updatedVehicle.ownerId !== this.currentUserId) {
                 throw new Error('Erro de segurança: veículo não pertence ao usuário atual');
             }
-            
+
             console.log('✅ API: Veículo atualizado');
             return updatedVehicle;
         } catch (error: any) {
@@ -375,6 +375,101 @@ export class ApiService {
             console.log('✅ API: Veículo deletado');
         } catch (error: any) {
             console.error('❌ API: Erro ao deletar veículo:', error);
+            throw error;
+        }
+    }
+
+    // FIPE API - MARCAS E MODELOS
+    async getBrands(): Promise<Array<{ codigo: string; nome: string }>> {
+        try {
+            console.log('🏷️ API: Buscando marcas de veículos...');
+            const response = await this.api.get('/vehicles/brands');
+            console.log(`✅ API: ${response.data.length} marcas carregadas`);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao buscar marcas:', error);
+            throw error;
+        }
+    }
+
+    async getModels(brandCode: string): Promise<Array<{ codigo: string; nome: string }>> {
+        try {
+            console.log(`🏷️ API: Buscando modelos da marca ${brandCode}...`);
+            const response = await this.api.get(`/vehicles/brands/${brandCode}/models`);
+            console.log(`✅ API: ${response.data.length} modelos carregados`);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao buscar modelos:', error);
+            throw error;
+        }
+    }
+
+    async getYears(brandCode: string, modelCode: string): Promise<Array<{ codigo: string; nome: string }>> {
+        try {
+            console.log(`🏷️ API: Buscando anos do modelo ${modelCode}...`);
+            const response = await this.api.get(`/vehicles/brands/${brandCode}/models/${modelCode}/years`);
+            console.log(`✅ API: ${response.data.length} anos carregados`);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao buscar anos:', error);
+            throw error;
+        }
+    }
+
+    // MILEAGE REMINDERS API
+    async createMileageReminder(data: {
+        vehicleId: string;
+        description: string;
+        dueMileage: number;
+        intervalMileage?: number;
+        recurring?: boolean;
+    }): Promise<any> {
+        try {
+            console.log('📝 API: Criando lembrete de quilometragem...');
+            const response = await this.api.post('/mileage-reminders', data);
+            console.log('✅ API: Lembrete de quilometragem criado');
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao criar lembrete de quilometragem:', error);
+            throw error;
+        }
+    }
+
+    async updateVehicleMileage(vehicleId: string, newMileage: number): Promise<any> {
+        try {
+            console.log(`🔄 API: Atualizando quilometragem do veículo ${vehicleId} para ${newMileage}km`);
+            const response = await this.api.put('/vehicles/mileage', {
+                vehicleId,
+                newMileage
+            });
+            console.log('✅ API: Quilometragem atualizada');
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao atualizar quilometragem:', error);
+            throw error;
+        }
+    }
+
+    async getMileageReminders(vehicleId: string): Promise<any[]> {
+        try {
+            console.log(`🔍 API: Buscando lembretes de quilometragem para veículo ${vehicleId}`);
+            const response = await this.api.get(`/vehicles/${vehicleId}/mileage-reminders`);
+            console.log(`✅ API: ${response.data.length} lembretes encontrados`);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao buscar lembretes de quilometragem:', error);
+            throw error;
+        }
+    }
+
+    async calculateNextMaintenance(vehicleId: string, intervalKm: number): Promise<any> {
+        try {
+            console.log(`🧮 API: Calculando próxima manutenção para veículo ${vehicleId} com intervalo de ${intervalKm}km`);
+            const response = await this.api.get(`/vehicles/${vehicleId}/next-maintenance?intervalKm=${intervalKm}`);
+            console.log('✅ API: Próxima manutenção calculada');
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ API: Erro ao calcular próxima manutenção:', error);
             throw error;
         }
     }
@@ -395,7 +490,7 @@ export class ApiService {
                     'Expires': '0'
                 }
             });
-            
+
             console.log(`✅ API: ${response.data.length} manutenções carregadas`);
             return response.data;
         } catch (error: any) {
@@ -455,7 +550,7 @@ export class ApiService {
                     'Expires': '0'
                 }
             });
-            
+
             console.log(`✅ API: ${response.data.length} lembretes carregados`);
             return response.data;
         } catch (error: any) {
@@ -514,7 +609,7 @@ export class ApiService {
                     'Expires': '0'
                 }
             });
-            
+
             console.log(`✅ API: ${response.data.length} despesas carregadas`);
             return response.data;
         } catch (error: any) {

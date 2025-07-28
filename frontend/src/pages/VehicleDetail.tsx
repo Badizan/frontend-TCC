@@ -5,7 +5,9 @@ import { ArrowLeft, Edit, PenTool as Tool, Clock, DollarSign, Trash2 } from 'luc
 import { MaintenanceTimeline } from '../components/dashboard/MaintenanceTimeline';
 import { RemindersList } from '../components/dashboard/RemindersList';
 import { ExpenseChart } from '../components/dashboard/ExpenseChart';
+import { MileageReminderCard } from '../components/dashboard/MileageReminderCard';
 import { formatDate } from '../utils/formatters';
+import { toast } from 'react-hot-toast';
 
 export const VehicleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,7 +19,7 @@ export const VehicleDetail: React.FC = () => {
     expenses,
     vehicleStats,
     selectVehicle,
-
+    updateVehicleMileage,
     completeReminder,
     deleteVehicle,
     loading,
@@ -26,6 +28,8 @@ export const VehicleDetail: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showMileageModal, setShowMileageModal] = useState(false);
+  const [newMileage, setNewMileage] = useState(selectedVehicle?.mileage || 0);
 
   useEffect(() => {
     if (id) {
@@ -75,6 +79,22 @@ export const VehicleDetail: React.FC = () => {
       }
     }
     setShowDeleteModal(false);
+  };
+
+  const handleUpdateMileage = async () => {
+    if (selectedVehicle?.id && newMileage !== selectedVehicle.mileage) {
+      try {
+        await updateVehicleMileage(selectedVehicle.id, newMileage);
+        
+        // Mostrar apenas uma notificação simples de sucesso
+        toast.success('Quilometragem atualizada com sucesso!');
+        
+        setShowMileageModal(false);
+      } catch (error) {
+        console.error('Erro ao atualizar quilometragem:', error);
+        toast.error('Erro ao atualizar quilometragem');
+      }
+    }
   };
 
   const formatVehicleType = (type: string) => {
@@ -173,10 +193,80 @@ export const VehicleDetail: React.FC = () => {
                   {formatVehicleType(selectedVehicle.type)}
                 </p>
               </div>
+              {selectedVehicle.color && (
+                <div>
+                  <p className="text-sm text-gray-500">Cor</p>
+                  <p className="font-medium">{selectedVehicle.color}</p>
+                </div>
+              )}
+              {selectedVehicle.mileage !== undefined && (
+                <div>
+                  <p className="text-sm text-gray-500">Quilometragem</p>
+                  <p className="font-medium">
+                    {selectedVehicle.mileage.toLocaleString('pt-BR')} km
+                  </p>
+                </div>
+              )}
             </div>
 
+            {/* Card de Quilometragem sempre visível */}
+            {selectedVehicle.mileage !== undefined && (
+              <div className="mt-6">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="mr-3 text-green-600">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="w-6 h-6"
+                        >
+                          <path d="M12 2v20M2 12h20" />
+                          <circle cx="12" cy="12" r="3" />
+                          <path d="M12 1v6" />
+                          <path d="M12 17v6" />
+                          <path d="M4.22 4.22l4.24 4.24" />
+                          <path d="M15.54 15.54l4.24 4.24" />
+                          <path d="M1 12h6" />
+                          <path d="M17 12h6" />
+                          <path d="M4.22 19.78l4.24-4.24" />
+                          <path d="M15.54 8.46l4.24-4.24" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-green-800">Quilometragem Atual</p>
+                        <p className="text-2xl font-bold text-green-900">
+                          {selectedVehicle.mileage.toLocaleString('pt-BR')} km
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-green-600">Última atualização</p>
+                      <p className="text-xs text-green-700">
+                        {formatDate(selectedVehicle.updatedAt)}
+                      </p>
+                      <button
+                        onClick={() => {
+                          setNewMileage(selectedVehicle.mileage || 0);
+                          setShowMileageModal(true);
+                        }}
+                        className="mt-2 px-3 py-1 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                      >
+                        Atualizar KM
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {vehicleStats && (
-              <div className="mt-6 grid grid-cols-3 gap-4">
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-primary-50 rounded-lg p-4">
                   <div className="flex items-center">
                     <div className="mr-3 text-primary-600">
@@ -258,6 +348,16 @@ export const VehicleDetail: React.FC = () => {
               onClick={() => setActiveTab('reminders')}
             >
               Lembretes
+            </button>
+            <button
+              className={`py-4 px-6 text-sm font-medium ${
+                activeTab === 'mileage-reminders'
+                  ? 'border-b-2 border-primary-600 text-primary-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => setActiveTab('mileage-reminders')}
+            >
+              Lembretes por KM
             </button>
             <button
               className={`py-4 px-6 text-sm font-medium ${
@@ -367,6 +467,26 @@ export const VehicleDetail: React.FC = () => {
               onComplete={completeReminder}
             />
           </div>
+        </div>
+      )}
+
+      {activeTab === 'mileage-reminders' && (
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-medium text-gray-900">
+              Lembretes por Quilometragem
+            </h2>
+            <div className="bg-blue-50 px-3 py-2 rounded-lg">
+              <p className="text-sm text-blue-800">
+                ⏰ Configure lembretes baseados na quilometragem do veículo
+              </p>
+            </div>
+          </div>
+
+          <MileageReminderCard 
+            vehicleId={selectedVehicle.id} 
+            currentMileage={selectedVehicle.mileage || 0}
+          />
         </div>
       )}
 
@@ -512,6 +632,50 @@ export const VehicleDetail: React.FC = () => {
                 className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
               >
                 Excluir Veículo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para atualizar quilometragem */}
+      {showMileageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Atualizar Quilometragem
+            </h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nova Quilometragem (km)
+              </label>
+              <input
+                type="number"
+                value={newMileage}
+                onChange={(e) => setNewMileage(parseInt(e.target.value) || 0)}
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Digite a nova quilometragem"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Atual: {selectedVehicle?.mileage?.toLocaleString('pt-BR')} km
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowMileageModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleUpdateMileage}
+                disabled={newMileage === selectedVehicle?.mileage}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                Atualizar
               </button>
             </div>
           </div>

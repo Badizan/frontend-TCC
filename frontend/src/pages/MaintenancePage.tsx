@@ -105,9 +105,24 @@ const MaintenancePage: React.FC = () => {
       setSelectedMaintenance(null);
       setCompletionCost('');
       
+      // Criar mensagem mais detalhada sobre a despesa
+      let message = 'Manutenção marcada como concluída';
+      
+      if (cost > 0) {
+        const originalCost = selectedMaintenance.cost || 0;
+        
+        if (originalCost === 0) {
+          message += ` e despesa de R$ ${cost.toFixed(2)} foi registrada`;
+        } else if (originalCost === cost) {
+          message += `. A despesa já estava registrada (R$ ${cost.toFixed(2)})`;
+        } else {
+          message += ` e despesa foi atualizada de R$ ${originalCost.toFixed(2)} para R$ ${cost.toFixed(2)}`;
+        }
+      }
+      
       showToast(
         'Manutenção Concluída',
-        `Manutenção marcada como concluída${cost > 0 ? ` e despesa de R$ ${cost.toFixed(2)} foi registrada` : ''}`,
+        message,
         'maintenance',
         'success'
       );
@@ -349,7 +364,10 @@ const MaintenancePage: React.FC = () => {
                   onChange={(e) => setCompletionCost(e.target.value)}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Se informado, uma despesa será automaticamente registrada
+                  {selectedMaintenance.cost ? 
+                    `Manutenção já possui custo de R$ ${selectedMaintenance.cost.toFixed(2)}. Se informar um valor diferente, a despesa será atualizada.` :
+                    'Se informado, uma despesa será automaticamente registrada.'
+                  }
                 </p>
               </div>
 

@@ -7,7 +7,180 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enumerações para papéis de usuário, tipos e status de manutenção
+model User {
+  id             String               @id @default(uuid())
+  name           String
+  email          String               @unique
+  password       String
+  role           UserRole             @default(OWNER)
+  phone          String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  maintenances   Maintenance[]        @relation("MechanicMaintenances")
+  notifications  Notification[]
+  passwordResets PasswordResetToken[] @relation("UserPasswordResets")
+  settings       UserSettings?
+  vehicles       Vehicle[]            @relation("UserVehicles")
+
+  @@map("users")
+}
+
+model Vehicle {
+  id             String          @id @default(uuid())
+  brand          String
+  model          String
+  year           Int
+  licensePlate   String
+  type           VehicleType
+  ownerId        String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  color          String?
+  mileage        Int?
+  expenses       Expense[]
+  mileageRecords MileageRecord[]
+  reminders      Reminder[]
+  maintenances   Maintenance[]   @relation("VehicleMaintenances")
+  owner          User            @relation("UserVehicles", fields: [ownerId], references: [id])
+
+  @@map("vehicles")
+}
+
+model Maintenance {
+  id            String            @id @default(uuid())
+  vehicleId     String
+  mechanicId    String?
+  type          MaintenanceType
+  status        MaintenanceStatus @default(SCHEDULED)
+  description   String
+  scheduledDate DateTime
+  completedDate DateTime?
+  cost          Float?
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  mechanic      User?             @relation("MechanicMaintenances", fields: [mechanicId], references: [id])
+  vehicle       Vehicle           @relation("VehicleMaintenances", fields: [vehicleId], references: [id])
+
+  @@map("maintenances")
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  duration    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("services")
+}
+
+model Reminder {
+  id              String       @id @default(uuid())
+  vehicleId       String
+  description     String
+  dueDate         DateTime?
+  completed       Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  dueMileage      Int?
+  intervalDays    Int?
+  intervalMileage Int?
+  lastNotified    DateTime?
+  recurring       Boolean      @default(false)
+  type            ReminderType @default(TIME_BASED)
+  vehicle         Vehicle      @relation(fields: [vehicleId], references: [id])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  vehicleId   String
+  description String
+  category    String
+  amount      Float
+  date        DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  mileage     Int?
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+}
+
+model Notification {
+  id           String              @id @default(uuid())
+  userId       String
+  type         NotificationType
+  title        String
+  message      String
+  channel      NotificationChannel
+  read         Boolean             @default(false)
+  sent         Boolean             @default(false)
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  data         Json?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  category     String
+  user         User                @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model UserSettings {
+  id               String @id @default(uuid())
+  userId           String @unique
+  advancedSettings Json   @default("{\"monthlyExpenseLimit\": null, \"mileageAlertThreshold\": 1000, \"maintenanceReminderDays\": 7}")
+  categories       Json   @default("{\"system\": {\"email\": false, \"inApp\": true}, \"expenses\": {\"email\": true, \"inApp\": true}, \"reminders\": {\"email\": true, \"inApp\": true}, \"maintenance\": {\"email\": true, \"inApp\": true}}")
+  channels         Json   @default("{\"email\": true, \"inApp\": true}")
+  user             User   @relation(fields: [userId], references: [id])
+
+  @@map("user_settings")
+}
+
+model MileageRecord {
+  id        String   @id @default(uuid())
+  vehicleId String
+  mileage   Int
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  period    String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Prediction {
+  id         String   @id @default(uuid())
+  vehicleId  String
+  type       String
+  prediction Json
+  confidence Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation("UserPasswordResets", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
 enum UserRole {
   ADMIN
   OWNER
@@ -35,15 +208,15 @@ enum MaintenanceType {
 
 enum NotificationType {
   MAINTENANCE_DUE
+  REMINDER_DUE
+  MILEAGE_ALERT
+  EXPENSE_LIMIT
+  SYSTEM_UPDATE
   MAINTENANCE_SCHEDULED
   MAINTENANCE_COMPLETED
-  REMINDER_DUE
   REMINDER_CREATED
   REMINDER_COMPLETED
   EXPENSE_CREATED
-  EXPENSE_LIMIT
-  MILEAGE_ALERT
-  SYSTEM_UPDATE
 }
 
 enum NotificationChannel {
@@ -55,196 +228,4 @@ enum ReminderType {
   TIME_BASED
   MILEAGE_BASED
   HYBRID
-}
-
-// Modelo de usuário
-model User {
-  id            String        @id @default(uuid())
-  name          String
-  email         String        @unique
-  password      String
-  role          UserRole      @default(OWNER)
-  phone         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  maintenances  Maintenance[] @relation("MechanicMaintenances")
-  vehicles      Vehicle[]     @relation("UserVehicles")
-  notifications Notification[]
-  settings      UserSettings?
-  passwordResets PasswordResetToken[] @relation("UserPasswordResets")
-
-  @@map("users")
-}
-
-// Modelo de veículo
-model Vehicle {
-  id            String        @id @default(uuid())
-  brand         String
-  model         String
-  year          Int
-  licensePlate  String
-  type          VehicleType
-  color         String?
-  mileage       Int?          // Quilometragem atual
-  ownerId       String
-  owner         User          @relation("UserVehicles", fields: [ownerId], references: [id])
-  maintenances  Maintenance[] @relation("VehicleMaintenances")
-  reminders     Reminder[]    // relação com lembretes
-  expenses      Expense[]     // relação com despesas
-  mileageRecords MileageRecord[] // Histórico de quilometragem
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  @@map("vehicles")
-}
-
-// Modelo de manutenção
-model Maintenance {
-  id              String            @id @default(uuid())
-  vehicleId       String
-  vehicle         Vehicle           @relation("VehicleMaintenances", fields: [vehicleId], references: [id])
-  mechanicId      String?
-  mechanic        User?             @relation("MechanicMaintenances", fields: [mechanicId], references: [id])
-  type            MaintenanceType
-  status          MaintenanceStatus @default(SCHEDULED)
-  description     String
-  scheduledDate   DateTime
-  completedDate   DateTime?
-  cost            Float?
-  notes           String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  @@map("maintenances")
-}
-
-// Modelo de serviço
-model Service {
-  id          String   @id @default(uuid())
-  name        String
-  description String
-  price       Float
-  duration    Int      // Duração em minutos
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("services")
-}
-
-// Modelo de lembrete de manutenção atualizado
-model Reminder {
-  id            String        @id @default(uuid())
-  vehicleId     String
-  vehicle       Vehicle       @relation(fields: [vehicleId], references: [id])
-  description   String
-  type          ReminderType  @default(TIME_BASED)
-  dueDate       DateTime?     // Para lembretes baseados em tempo
-  dueMileage    Int?          // Para lembretes baseados em quilometragem
-  intervalDays  Int?          // Intervalo em dias para repetição
-  intervalMileage Int?        // Intervalo em quilometragem
-  completed     Boolean       @default(false)
-  recurring     Boolean       @default(false)
-  lastNotified  DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-}
-
-// Modelo de despesa
-model Expense {
-  id            String   @id @default(uuid())
-  vehicleId     String
-  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id])
-  description   String
-  category      String
-  amount        Float
-  date          DateTime
-  mileage       Int?     // Quilometragem no momento da despesa
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-// Modelo para notificações
-model Notification {
-  id          String             @id @default(uuid())
-  userId      String
-  user        User               @relation(fields: [userId], references: [id])
-  type        NotificationType
-  title       String
-  message     String
-  channel     NotificationChannel
-  category    String             // maintenance, expenses, reminders, system
-  read        Boolean            @default(false)
-  sent        Boolean            @default(false)
-  scheduledFor DateTime?
-  sentAt      DateTime?
-  data        Json?              // Dados adicionais em JSON
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-
-  @@map("notifications")
-}
-
-// Modelo para configurações do usuário
-model UserSettings {
-  id                    String  @id @default(uuid())
-  userId                String  @unique
-  user                  User    @relation(fields: [userId], references: [id])
-  
-  // Configurações de canais de notificação
-  channels              Json    @default("{\"inApp\": true, \"email\": true}")
-  
-  // Configurações de categorias de notificação
-  categories           Json    @default("{\"maintenance\": {\"inApp\": true, \"email\": true}, \"expenses\": {\"inApp\": true, \"email\": true}, \"reminders\": {\"inApp\": true, \"email\": true}, \"system\": {\"inApp\": true, \"email\": false}}")
-  
-  // Configurações avançadas
-  advancedSettings     Json    @default("{\"maintenanceReminderDays\": 7, \"mileageAlertThreshold\": 1000, \"monthlyExpenseLimit\": null}")
-
-  @@map("user_settings")
-}
-
-// Modelo para registro de quilometragem
-model MileageRecord {
-  id          String   @id @default(uuid())
-  vehicleId   String
-  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
-  mileage     Int
-  date        DateTime
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-// Modelo para relatórios
-model Report {
-  id          String   @id @default(uuid())
-  userId      String
-  type        String   // maintenance, expense, etc.
-  period      String   // weekly, monthly, yearly
-  data        Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-// Modelo para previsões
-model Prediction {
-  id          String   @id @default(uuid())
-  vehicleId   String
-  type        String   // maintenance, expense, etc.
-  prediction  Json
-  confidence  Float
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-// Modelo para tokens de reset de senha
-model PasswordResetToken {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation("UserPasswordResets", fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@map("password_reset_tokens")
 }

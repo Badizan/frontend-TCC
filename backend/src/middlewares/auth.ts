@@ -34,7 +34,7 @@ declare global {
 interface JWTPayload {
   id: string;
   email: string;
-  role: string;
+  role: UserRole;
 }
 
 // Log de auditoria para rastrear ações por usuário
@@ -82,7 +82,7 @@ export async function authMiddleware(
     auditLog(payload.id, request.method, resource, {
       userEmail: payload.email,
       userRole: payload.role,
-      queryParams: Object.keys(request.query).length > 0 ? request.query : undefined,
+      queryParams: Object.keys(request.query as any).length > 0 ? request.query : undefined,
       bodyPresent: request.method !== 'GET' && Object.keys(request.body || {}).length > 0
     });
 

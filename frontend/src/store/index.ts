@@ -50,6 +50,11 @@ interface AppState {
   forgotPassword: (email: string) => Promise<any>;
   resetPassword: (token: string, password: string) => Promise<any>;
   validateResetToken: (token: string) => Promise<boolean>;
+  // Mileage Reminders
+  createMileageReminder: (data: { vehicleId: string; description: string; dueMileage: number; intervalMileage?: number; recurring?: boolean }) => Promise<any>;
+  updateVehicleMileage: (vehicleId: string, newMileage: number) => Promise<any>;
+  getMileageReminders: (vehicleId: string) => Promise<any[]>;
+  calculateNextMaintenance: (vehicleId: string, intervalKm: number) => Promise<any>;
   clearUserData: () => void;
   forceReset: () => void;
   setNotificationCallback: (callback: (type: string, title: string, message: string) => void) => void;
@@ -335,13 +340,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     }
 
-    // Forçar recarregamento da página para garantir limpeza total
-    setTimeout(() => {
-      console.log('🔄 Store: Forçando recarregamento da página para limpeza total...');
-      window.location.reload();
-    }, 100);
+    // Limpar completamente o localStorage
+    const keysToPreserve = ['theme', 'language']; // Preservar apenas configurações básicas
+    Object.keys(localStorage).forEach(key => {
+      if (!keysToPreserve.includes(key)) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    // Limpar sessionStorage
+    sessionStorage.clear();
 
     console.log('✅ Store: Logout completo realizado');
+
+    // Redirecionar para login com replace para evitar histórico
+    console.log('🔄 Store: Redirecionando para login...');
+
+    // Usar setTimeout para garantir que a limpeza seja concluída
+    setTimeout(() => {
+      window.location.replace('/login');
+    }, 50);
   },
 
   // Vehicle actions - Otimizadas para evitar loading desnecessário
@@ -927,6 +945,99 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('❌ Store: Erro ao buscar estatísticas:', error);
       set({ loading: false });
+    }
+  },
+
+  // Mileage Reminders
+  createMileageReminder: async (data: { vehicleId: string; description: string; dueMileage: number; intervalMileage?: number; recurring?: boolean }) => {
+    try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      console.log('📝 Store: Criando lembrete de quilometragem:', data);
+      const reminder = await apiService.createMileageReminder(data);
+
+      // Atualizar lista de lembretes
+      const currentReminders = get().maintenanceReminders;
+      set({ maintenanceReminders: [...currentReminders, reminder] });
+
+      console.log('✅ Store: Lembrete de quilometragem criado');
+      return reminder;
+    } catch (error) {
+      console.error('❌ Store: Erro ao criar lembrete de quilometragem:', error);
+      throw error;
+    }
+  },
+
+  updateVehicleMileage: async (vehicleId: string, newMileage: number) => {
+    try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      console.log('🔄 Store: Atualizando quilometragem:', { vehicleId, newMileage });
+      const result = await apiService.updateVehicleMileage(vehicleId, newMileage);
+
+      // Atualizar quilometragem do veículo na lista
+      const currentVehicles = get().vehicles;
+      const updatedVehicles = currentVehicles.map(vehicle =>
+        vehicle.id === vehicleId
+          ? { ...vehicle, mileage: newMileage }
+          : vehicle
+      );
+
+      set({ vehicles: updatedVehicles });
+
+      // Se há um veículo selecionado, atualizar também
+      const selectedVehicle = get().selectedVehicle;
+      if (selectedVehicle && selectedVehicle.id === vehicleId) {
+        set({ selectedVehicle: { ...selectedVehicle, mileage: newMileage } });
+      }
+
+      console.log('✅ Store: Quilometragem atualizada');
+      return result;
+    } catch (error) {
+      console.error('❌ Store: Erro ao atualizar quilometragem:', error);
+      throw error;
+    }
+  },
+
+  getMileageReminders: async (vehicleId: string) => {
+    try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      console.log('🔍 Store: Buscando lembretes de quilometragem para veículo:', vehicleId);
+      const reminders = await apiService.getMileageReminders(vehicleId);
+
+      console.log(`✅ Store: ${reminders.length} lembretes de quilometragem encontrados`);
+      return reminders;
+    } catch (error) {
+      console.error('❌ Store: Erro ao buscar lembretes de quilometragem:', error);
+      throw error;
+    }
+  },
+
+  calculateNextMaintenance: async (vehicleId: string, intervalKm: number) => {
+    try {
+      const { user } = get();
+      if (!user || !user.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      console.log('🧮 Store: Calculando próxima manutenção:', { vehicleId, intervalKm });
+      const result = await apiService.calculateNextMaintenance(vehicleId, intervalKm);
+
+      console.log('✅ Store: Próxima manutenção calculada:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Store: Erro ao calcular próxima manutenção:', error);
+      throw error;
     }
   },
 

@@ -52,14 +52,19 @@ export class MaintenanceService {
             console.error('❌ Erro ao criar notificação de manutenção:', error)
         }
 
-        // Criar lembrete automático para a manutenção (1 dia antes)
+        // Criar lembrete automático para a manutenção (no mesmo dia)
         try {
             const reminderDate = new Date(data.scheduledDate);
-            reminderDate.setDate(reminderDate.getDate() - 1); // 1 dia antes
+            // Definir o lembrete para o mesmo dia da manutenção, mas às 8h da manhã
+            reminderDate.setHours(8, 0, 0, 0);
+
+            // Formatar a data da manutenção para exibição
+            const maintenanceDate = new Date(data.scheduledDate);
+            const formattedDate = maintenanceDate.toLocaleDateString('pt-BR');
 
             await reminderService.create({
                 vehicleId: maintenance.vehicleId,
-                description: `Lembrete: ${data.description} agendada para amanhã`,
+                description: `Lembrete: ${data.description} agendada para ${formattedDate}`,
                 type: 'TIME_BASED',
                 dueDate: reminderDate,
                 recurring: false
@@ -165,6 +170,23 @@ export class MaintenanceService {
         cost?: number
         notes?: string
     }) {
+        // Buscar a manutenção atual para verificar se já tem custo
+        const currentMaintenance = await prisma.maintenance.findUnique({
+            where: { id },
+            include: {
+                vehicle: {
+                    select: { id: true, brand: true, model: true, licensePlate: true, ownerId: true }
+                },
+                mechanic: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
+        });
+
+        if (!currentMaintenance) {
+            throw new Error('Manutenção não encontrada');
+        }
+
         const maintenance = await prisma.maintenance.update({
             where: { id },
             data,
@@ -199,20 +221,46 @@ export class MaintenanceService {
                 console.error('❌ Erro ao criar notificação de manutenção concluída:', error)
             }
 
-            // Criar despesa automaticamente se a manutenção tem custo
-            if (data.cost && data.cost > 0) {
+            // Criar despesa automaticamente apenas se:
+            // 1. A manutenção não tinha custo inicial E agora tem custo, OU
+            // 2. O custo informado é diferente do custo original
+            const shouldCreateExpense = data.cost && data.cost > 0 && (
+                !currentMaintenance.cost || // Não tinha custo inicial
+                currentMaintenance.cost !== data.cost // Custo diferente
+            );
+
+            if (shouldCreateExpense) {
                 try {
-                    await expenseService.create({
-                        vehicleId: maintenance.vehicleId,
-                        description: `Manutenção: ${maintenance.description}`,
-                        category: 'MAINTENANCE',
-                        amount: data.cost,
-                        date: data.completedDate || new Date()
-                    })
-                    console.log('✅ Despesa criada automaticamente para manutenção concluída')
+                    // Primeiro, tentar encontrar uma despesa existente para esta manutenção
+                    const existingExpenses = await expenseService.findByMaintenance(
+                        maintenance.vehicleId,
+                        maintenance.description
+                    );
+
+                    if (existingExpenses.length > 0) {
+                        // Atualizar a despesa mais recente (primeira da lista)
+                        const expenseToUpdate = existingExpenses[0];
+                        await expenseService.update(expenseToUpdate.id, {
+                            amount: data.cost,
+                            date: data.completedDate || new Date()
+                        });
+                        console.log('✅ Despesa existente atualizada para manutenção concluída');
+                    } else {
+                        // Criar nova despesa se não encontrar nenhuma existente
+                        await expenseService.create({
+                            vehicleId: maintenance.vehicleId,
+                            description: `Manutenção: ${maintenance.description}`,
+                            category: 'MAINTENANCE',
+                            amount: data.cost || 0,
+                            date: data.completedDate || new Date()
+                        });
+                        console.log('✅ Nova despesa criada para manutenção concluída');
+                    }
                 } catch (error) {
-                    console.error('❌ Erro ao criar despesa da manutenção:', error)
+                    console.error('❌ Erro ao criar/atualizar despesa da manutenção:', error)
                 }
+            } else if (data.cost && data.cost > 0) {
+                console.log('ℹ️ Despesa não criada: manutenção já possui despesa com o mesmo valor')
             }
         }
 

@@ -20,6 +20,8 @@ export interface Vehicle {
   year: number;
   licensePlate: string;
   type: VehicleType;
+  color?: string;
+  mileage?: number;
   ownerId: string;
   owner?: {
     id: string;

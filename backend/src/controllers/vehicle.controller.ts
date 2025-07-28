@@ -1,10 +1,12 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { BaseController } from './base.controller'
 import { VehicleService } from '../services/vehicle.service'
+import { FipeService } from '../services/fipe.service'
 import { z } from 'zod'
 import { updateVehicleSchema } from '../schemas/vehicle.schema'
 
 const vehicleService = new VehicleService()
+const fipeService = new FipeService()
 
 const createVehicleSchema = z.object({
   brand: z.string().min(1, 'Brand is required'),
@@ -222,6 +224,60 @@ export class VehicleController extends BaseController {
       return this.sendResponse(reply, { message: 'Vehicle deleted successfully' });
     } catch (error) {
       console.error('❌ VehicleController: Erro ao deletar veículo:', error);
+      return this.sendError(reply, error as Error);
+    }
+  }
+
+  async getBrands(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      console.log('🔍 VehicleController: Buscando marcas de veículos...');
+
+      const brands = await fipeService.getBrandsWithCache();
+
+      console.log(`✅ VehicleController: ${brands.length} marcas retornadas`);
+      return this.sendResponse(reply, brands);
+    } catch (error) {
+      console.error('❌ VehicleController: Erro ao buscar marcas:', error);
+      return this.sendError(reply, error as Error);
+    }
+  }
+
+  async getModels(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { brandCode } = request.params as { brandCode: string };
+
+      if (!brandCode) {
+        return reply.status(400).send({ message: 'Brand code is required' });
+      }
+
+      console.log(`🔍 VehicleController: Buscando modelos da marca ${brandCode}...`);
+
+      const models = await fipeService.getModelsWithCache(brandCode);
+
+      console.log(`✅ VehicleController: ${models.length} modelos retornados para marca ${brandCode}`);
+      return this.sendResponse(reply, models);
+    } catch (error) {
+      console.error('❌ VehicleController: Erro ao buscar modelos:', error);
+      return this.sendError(reply, error as Error);
+    }
+  }
+
+  async getYears(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { brandCode, modelCode } = request.params as { brandCode: string; modelCode: string };
+
+      if (!brandCode || !modelCode) {
+        return reply.status(400).send({ message: 'Brand code and model code are required' });
+      }
+
+      console.log(`🔍 VehicleController: Buscando anos do modelo ${modelCode} da marca ${brandCode}...`);
+
+      const years = await fipeService.getYears(brandCode, modelCode);
+
+      console.log(`✅ VehicleController: ${years.length} anos retornados para modelo ${modelCode}`);
+      return this.sendResponse(reply, years);
+    } catch (error) {
+      console.error('❌ VehicleController: Erro ao buscar anos:', error);
       return this.sendError(reply, error as Error);
     }
   }

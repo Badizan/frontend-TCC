@@ -6,6 +6,7 @@ import { AuthController } from '../controllers/auth.controller'
 import { ReminderController } from '../controllers/reminder.controller'
 import { ExpenseController } from '../controllers/expense.controller'
 import { ReportController } from '../controllers/report.controller'
+import { MileageReminderController } from '../controllers/mileageReminder.controller'
 import { authMiddleware } from '../middlewares/auth'
 import { notificationRoutes } from './notification.routes'
 
@@ -16,6 +17,7 @@ const authController = new AuthController()
 const reminderController = new ReminderController()
 const expenseController = new ExpenseController()
 const reportController = new ReportController()
+const mileageReminderController = new MileageReminderController()
 
 export async function routes(app: FastifyInstance) {
   // ===== ROOT ENDPOINT =====
@@ -322,6 +324,83 @@ export async function routes(app: FastifyInstance) {
     preHandler: authMiddleware
   }, vehicleController.delete.bind(vehicleController))
 
+  // ===== FIPE API ROUTES =====
+  app.get('/vehicles/brands', {
+    schema: {
+      description: 'Listar marcas de veículos disponíveis na tabela FIPE',
+      tags: ['Veículos'],
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              codigo: { type: 'string' },
+              nome: { type: 'string' }
+            }
+          }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, vehicleController.getBrands.bind(vehicleController))
+
+  app.get('/vehicles/brands/:brandCode/models', {
+    schema: {
+      description: 'Listar modelos de uma marca específica',
+      tags: ['Veículos'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          brandCode: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              codigo: { type: 'string' },
+              nome: { type: 'string' }
+            }
+          }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, vehicleController.getModels.bind(vehicleController))
+
+  app.get('/vehicles/brands/:brandCode/models/:modelCode/years', {
+    schema: {
+      description: 'Listar anos disponíveis para um modelo específico',
+      tags: ['Veículos'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          brandCode: { type: 'string' },
+          modelCode: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              codigo: { type: 'string' },
+              nome: { type: 'string' }
+            }
+          }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, vehicleController.getYears.bind(vehicleController))
+
   // MAINTENANCES
   app.get('/maintenance', {
     schema: {
@@ -577,6 +656,80 @@ export async function routes(app: FastifyInstance) {
     },
     preHandler: authMiddleware
   }, reportController.getExpensesByPeriod.bind(reportController))
+
+  // ===== MILEAGE REMINDERS =====
+  app.post('/mileage-reminders', {
+    schema: {
+      description: 'Criar lembrete baseado em quilometragem',
+      tags: ['Lembretes'],
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['vehicleId', 'description', 'dueMileage'],
+        properties: {
+          vehicleId: { type: 'string', format: 'uuid' },
+          description: { type: 'string', minLength: 1 },
+          dueMileage: { type: 'number', minimum: 1 },
+          intervalMileage: { type: 'number', minimum: 1 },
+          recurring: { type: 'boolean', default: false }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, mileageReminderController.createMileageReminder.bind(mileageReminderController))
+
+  app.put('/vehicles/mileage', {
+    schema: {
+      description: 'Atualizar quilometragem do veículo e verificar lembretes',
+      tags: ['Veículos'],
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['vehicleId', 'newMileage'],
+        properties: {
+          vehicleId: { type: 'string', format: 'uuid' },
+          newMileage: { type: 'number', minimum: 0 }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, mileageReminderController.updateVehicleMileage.bind(mileageReminderController))
+
+  app.get('/vehicles/:vehicleId/mileage-reminders', {
+    schema: {
+      description: 'Buscar lembretes baseados em quilometragem de um veículo',
+      tags: ['Lembretes'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          vehicleId: { type: 'string', format: 'uuid' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, mileageReminderController.getMileageReminders.bind(mileageReminderController))
+
+  app.get('/vehicles/:vehicleId/next-maintenance', {
+    schema: {
+      description: 'Calcular próxima quilometragem para manutenção',
+      tags: ['Veículos'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          vehicleId: { type: 'string', format: 'uuid' }
+        }
+      },
+      querystring: {
+        type: 'object',
+        properties: {
+          intervalKm: { type: 'string', pattern: '^[0-9]+$' }
+        }
+      }
+    },
+    preHandler: authMiddleware
+  }, mileageReminderController.calculateNextMaintenance.bind(mileageReminderController))
 
   // NOTIFICATIONS
   app.register(notificationRoutes, { prefix: '/notifications' })

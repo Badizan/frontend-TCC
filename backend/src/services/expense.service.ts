@@ -138,6 +138,20 @@ export class ExpenseService {
         })
     }
 
+    async findByMaintenance(vehicleId: string, maintenanceDescription: string) {
+        return await prisma.expense.findMany({
+            where: {
+                vehicleId,
+                description: {
+                    contains: maintenanceDescription,
+                    mode: 'insensitive'
+                },
+                category: 'MAINTENANCE'
+            },
+            orderBy: { date: 'desc' }
+        })
+    }
+
     async getTotalByCategory(vehicleId?: string) {
         const where = vehicleId ? { vehicleId } : {}
 

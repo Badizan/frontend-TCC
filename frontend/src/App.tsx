@@ -17,12 +17,14 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store';
 import { useNotifications } from './hooks/useNotifications';
+import { useMileageNotifications } from './hooks/useMileageNotifications';
 import { api } from './services/api';
 
 const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [forceRefresh, setForceRefresh] = useState(0); // Para forçar re-render quando necessário
+    const [isLoggingOut, setIsLoggingOut] = useState(false); // Para controlar processo de logout
     
     const { 
         initializeAuth, 
@@ -34,6 +36,9 @@ const App: React.FC = () => {
     } = useAppStore();
     
     const { showToast, checkImmediateNotifications } = useNotifications();
+    
+    // Hook para notificações de quilometragem
+    useMileageNotifications();
 
     // Configurar callback de notificação
     useEffect(() => {
@@ -57,8 +62,15 @@ const App: React.FC = () => {
         console.log('👤 App: Verificando mudança de usuário...', {
             currentUserId,
             newUserId,
-            isAuthenticated
+            isAuthenticated,
+            isLoggingOut
         });
+
+        // Se está fazendo logout, não processar mudanças
+        if (isLoggingOut) {
+            console.log('🚪 App: Logout em andamento, pulando processamento...');
+            return;
+        }
 
         // Se houve mudança de usuário ou logout
         if (currentUserId !== newUserId) {
@@ -73,6 +85,7 @@ const App: React.FC = () => {
             // Se fez logout (tinha usuário, agora não tem)
             else if (currentUserId && !newUserId) {
                 console.log('🚪 App: LOGOUT detectado - Limpeza total');
+                setIsLoggingOut(true); // Marcar que está fazendo logout
                 forceReset();
                 api.clearAllCache();
                 setForceRefresh(prev => prev + 1);
@@ -85,17 +98,29 @@ const App: React.FC = () => {
             
             setCurrentUserId(newUserId);
         }
-    }, [user, currentUserId, forceReset]);
+    }, [user, currentUserId, forceReset, isLoggingOut]);
 
     // Inicialização da autenticação
     useEffect(() => {
         const checkAuth = async () => {
             try {
+                // Verificar se estamos na página de login
+                const isLoginPage = window.location.pathname === '/login';
                 const token = localStorage.getItem('auth_token');
+                
                 console.log('🔍 App: Verificando autenticação...', { 
                     hasToken: !!token,
-                    forceRefresh 
+                    forceRefresh,
+                    isLoginPage,
+                    pathname: window.location.pathname
                 });
+                
+                // Se estamos na página de login e não há token, não fazer nada
+                if (isLoginPage && !token) {
+                    console.log('✅ App: Página de login sem token - estado correto');
+                    setIsLoading(false);
+                    return;
+                }
                 
                 if (token) {
                     console.log('🔄 App: Token encontrado, inicializando autenticação...');
@@ -115,12 +140,27 @@ const App: React.FC = () => {
                 api.clearAllCache();
                 setCurrentUserId(null);
             } finally {
-                setIsLoading(false);
+                // Garantir que o loading seja sempre false após um tempo máximo
+                setTimeout(() => {
+                    setIsLoading(false);
+                }, 100);
             }
         };
 
         checkAuth();
     }, [initializeAuth, forceReset, forceRefresh]); // Incluir forceRefresh como dependência
+
+    // Timeout de segurança para evitar loading infinito
+    useEffect(() => {
+        const safetyTimeout = setTimeout(() => {
+            if (isLoading) {
+                console.warn('⚠️ App: Timeout de segurança - forçando fim do loading');
+                setIsLoading(false);
+            }
+        }, 10000); // 10 segundos
+
+        return () => clearTimeout(safetyTimeout);
+    }, [isLoading]);
 
     // Limpeza quando o componente é desmontado
     useEffect(() => {
@@ -130,15 +170,29 @@ const App: React.FC = () => {
     }, []);
 
     // Loading screen
-    if (isLoading) {
+    if (isLoading || isLoggingOut) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-50">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Carregando sistema...</p>
+                    <p className="text-gray-600">
+                        {isLoggingOut ? 'Saindo do sistema...' : 'Carregando sistema...'}
+                    </p>
                     <p className="text-xs text-gray-400 mt-2">
                         Usuário: {currentUserId ? 'Autenticado' : 'Anônimo'}
                     </p>
+                    {!isLoggingOut && (
+                        <button 
+                            onClick={() => {
+                                console.log('🔄 App: Usuário forçou fim do loading');
+                                setIsLoading(false);
+                                forceReset();
+                            }}
+                            className="mt-4 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 underline"
+                        >
+                            Se estiver demorando, clique aqui
+                        </button>
+                    )}
                 </div>
             </div>
         );
@@ -186,7 +240,12 @@ const App: React.FC = () => {
                             <Route path="/notifications" element={<NotificationsPage />} />
                         </Route>
                     ) : (
-                        <Route path="*" element={<Navigate to="/login" replace />} />
+                        // Redirecionar apenas se não estiver já na página de login
+                        <Route path="*" element={
+                            window.location.pathname === '/login' ? 
+                                <Login /> : 
+                                <Navigate to="/login" replace />
+                        } />
                     )}
                 </Routes>
             </Router>

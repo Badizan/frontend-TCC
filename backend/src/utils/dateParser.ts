@@ -15,19 +15,12 @@ export function parseLocalDate(dateString: string): Date {
         return new Date(dateString);
     }
 
-    // Para strings no formato YYYY-MM-DD, cria data UTC que resulta na data local correta
+    // Para strings no formato YYYY-MM-DD, cria data local diretamente
     if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [year, month, day] = dateString.split('-').map(Number);
         if (year && month && day) {
-            // Primeiro, cria uma data local com a data desejada
-            const localDate = new Date(year, month - 1, day, 12, 0, 0, 0);
-
-            // Obtém o offset do timezone em milissegundos
-            const timezoneOffset = localDate.getTimezoneOffset() * 60 * 1000;
-
-            // Cria uma data UTC ajustada que resulta na data local correta
-            // Subtraímos o offset porque getTimezoneOffset() retorna o offset inverso
-            return new Date(localDate.getTime() - timezoneOffset);
+            // Cria uma data local diretamente, sem conversão UTC
+            return new Date(year, month - 1, day, 12, 0, 0, 0);
         }
     }
 
