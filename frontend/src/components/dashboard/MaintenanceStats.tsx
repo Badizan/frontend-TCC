@@ -86,30 +86,28 @@ export const MaintenanceStats: React.FC<MaintenanceStatsProps> = ({ services }) 
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Cards de estatísticas principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {statsData.map((stat, index) => (
-          <div key={index} className="bg-white rounded-lg border shadow-sm p-6">
+          <div key={index} className="bg-white rounded-lg border shadow-sm p-4 sm:p-6">
             <div className="flex items-center">
-              <div className={`flex-shrink-0 ${stat.bgColor} rounded-lg p-3`}>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
+              <div className={`flex-shrink-0 ${stat.bgColor} rounded-lg p-2 sm:p-3`}>
+                <stat.icon className={`h-5 w-5 sm:h-6 sm:w-6 ${stat.color}`} />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-3 sm:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
                     {stat.title}
                   </dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
-                      {stat.value}
-                    </div>
-                    {stat.change && (
-                      <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
-                        {stat.change}
-                      </div>
-                    )}
+                  <dd className="text-lg sm:text-xl font-semibold text-gray-900">
+                    {stat.value}
                   </dd>
+                  {stat.change && (
+                    <dd className="text-xs sm:text-sm text-green-600">
+                      {stat.change}
+                    </dd>
+                  )}
                 </dl>
               </div>
             </div>
@@ -118,96 +116,56 @@ export const MaintenanceStats: React.FC<MaintenanceStatsProps> = ({ services }) 
       </div>
 
       {/* Distribuição por tipo */}
-      {totalServices > 0 && (
-        <div className="bg-white rounded-lg border shadow-sm p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Distribuição por Tipo</h3>
-          <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="bg-white rounded-lg border shadow-sm p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">Distribuição por Tipo</h3>
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
-                <span className="text-sm font-medium text-gray-700">Preventiva</span>
+                <span className="text-sm text-gray-700">Preventiva</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500">{preventiveCount}</span>
-                <div className="w-20 bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-500 h-2 rounded-full" 
-                    style={{ width: `${(preventiveCount / totalServices) * 100}%` }}
-                  ></div>
-                </div>
-                <span className="text-sm font-medium text-gray-900 w-10 text-right">
-                  {Math.round((preventiveCount / totalServices) * 100)}%
-                </span>
-              </div>
+              <span className="text-sm font-medium text-gray-900">{preventiveCount}</span>
             </div>
-            
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
-                <span className="text-sm font-medium text-gray-700">Corretiva</span>
+                <span className="text-sm text-gray-700">Corretiva</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500">{correctiveCount}</span>
-                <div className="w-20 bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-red-500 h-2 rounded-full" 
-                    style={{ width: `${(correctiveCount / totalServices) * 100}%` }}
-                  ></div>
-                </div>
-                <span className="text-sm font-medium text-gray-900 w-10 text-right">
-                  {Math.round((correctiveCount / totalServices) * 100)}%
-                </span>
-              </div>
+              <span className="text-sm font-medium text-gray-900">{correctiveCount}</span>
             </div>
-            
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                <span className="text-sm font-medium text-gray-700">Inspeção</span>
+                <span className="text-sm text-gray-700">Inspeção</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500">{inspectionCount}</span>
-                <div className="w-20 bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-green-500 h-2 rounded-full" 
-                    style={{ width: `${(inspectionCount / totalServices) * 100}%` }}
-                  ></div>
-                </div>
-                <span className="text-sm font-medium text-gray-900 w-10 text-right">
-                  {Math.round((inspectionCount / totalServices) * 100)}%
-                </span>
-              </div>
+              <span className="text-sm font-medium text-gray-900">{inspectionCount}</span>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Resumo de custos */}
-      {totalCost > 0 && (
-        <div className="bg-white rounded-lg border shadow-sm p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Resumo Financeiro</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-gray-900">
+        <div className="bg-white rounded-lg border shadow-sm p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">Resumo Financeiro</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Custo Total</span>
+              <span className="text-sm font-medium text-gray-900">
                 R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </div>
-              <div className="text-sm text-gray-500">Custo Total</div>
+              </span>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-gray-900">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Custo Médio</span>
+              <span className="text-sm font-medium text-gray-900">
                 R$ {averageCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </div>
-              <div className="text-sm text-gray-500">Custo Médio</div>
+              </span>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-gray-900">
-                {completedServices}
-              </div>
-              <div className="text-sm text-gray-500">Manutenções Pagas</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Manutenções Concluídas</span>
+              <span className="text-sm font-medium text-gray-900">{completedServices}</span>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }; 

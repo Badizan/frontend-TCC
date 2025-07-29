@@ -100,30 +100,30 @@ export const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ servic
   return (
     <div className="space-y-4">
       {/* Header com estatísticas */}
-      <div className="flex justify-between items-center pb-4 border-b">
-        <div className="flex items-center space-x-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center pb-4 border-b space-y-4 sm:space-y-0">
+        <div className="flex items-center space-x-4 sm:space-x-6">
           <div>
-            <span className="text-2xl font-semibold text-gray-900">{validServices.length}</span>
-            <p className="text-sm text-gray-500">Total de manutenções</p>
+            <span className="text-xl sm:text-2xl font-semibold text-gray-900">{validServices.length}</span>
+            <p className="text-xs sm:text-sm text-gray-500">Total de manutenções</p>
           </div>
           <div>
-            <span className="text-2xl font-semibold text-green-600">
+            <span className="text-xl sm:text-2xl font-semibold text-green-600">
               {validServices.filter(s => s.status === 'COMPLETED').length}
             </span>
-            <p className="text-sm text-gray-500">Concluídas</p>
+            <p className="text-xs sm:text-sm text-gray-500">Concluídas</p>
           </div>
           <div>
-            <span className="text-2xl font-semibold text-blue-600">
+            <span className="text-xl sm:text-2xl font-semibold text-blue-600">
               {validServices.filter(s => s.status === 'SCHEDULED').length}
             </span>
-            <p className="text-sm text-gray-500">Agendadas</p>
+            <p className="text-xs sm:text-sm text-gray-500">Agendadas</p>
           </div>
         </div>
         
         {validServices.length > 5 && (
           <button
             onClick={() => setShowAll(!showAll)}
-            className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+            className="flex items-center justify-center sm:justify-start space-x-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors w-full sm:w-auto"
           >
             <Eye className="w-4 h-4" />
             <span>{showAll ? 'Ver menos' : `Ver todas (${validServices.length})`}</span>
@@ -152,39 +152,39 @@ export const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ servic
 
           return (
             <div key={safeService.id} className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow">
-              <div className="p-4">
+              <div className="p-3 sm:p-4">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <div className={`flex-shrink-0 h-10 w-10 rounded-full ${getTypeColor(safeService.type)} flex items-center justify-center`}>
-                      <Wrench className="w-5 h-5" />
+                  <div className="flex items-start space-x-2 sm:space-x-3 flex-1 min-w-0">
+                    <div className={`flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10 rounded-full ${getTypeColor(safeService.type)} flex items-center justify-center`}>
+                      <Wrench className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 mb-2">
                         <h3 className="text-sm font-medium text-gray-900 truncate">
                           {safeService.description}
                         </h3>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getTypeColor(safeService.type)}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getTypeColor(safeService.type)} w-fit`}>
                           {formatMaintenanceType(safeService.type)}
                         </span>
                       </div>
                       
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-4 text-xs sm:text-sm text-gray-500">
                         <div className="flex items-center">
-                          <Calendar className="w-4 h-4 mr-1" />
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                           {formatDateSafe(safeService.date)}
                         </div>
                         
                         {safeService.cost > 0 && (
                           <div className="flex items-center">
-                            <DollarSign className="w-4 h-4 mr-1" />
+                            <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                             R$ {safeService.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </div>
                         )}
                         
                         {safeService.mechanic && (
                           <div className="flex items-center">
-                            <User className="w-4 h-4 mr-1" />
+                            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                             {safeService.mechanic.name}
                           </div>
                         )}
@@ -192,7 +192,7 @@ export const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ servic
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2 sm:space-x-3 ml-2 sm:ml-0">
                     <div className="text-right">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         safeService.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
@@ -241,11 +241,11 @@ export const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ servic
                 </div>
                 
                 {isExpanded && (
-                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100 space-y-2">
                     {safeService.vehicle && (
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Veículo: </span>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-xs sm:text-sm font-medium text-gray-700">Veículo: </span>
+                        <span className="text-xs sm:text-sm text-gray-600">
                           {safeService.vehicle.brand} {safeService.vehicle.model} - {safeService.vehicle.licensePlate}
                         </span>
                       </div>
@@ -253,8 +253,8 @@ export const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ servic
                     
                     {safeService.notes && (
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Observações: </span>
-                        <p className="text-sm text-gray-600 mt-1">{safeService.notes}</p>
+                        <span className="text-xs sm:text-sm font-medium text-gray-700">Observações: </span>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-1">{safeService.notes}</p>
                       </div>
                     )}
                   </div>
