@@ -85,17 +85,17 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header personalizado */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold">
-          Bem-vindo, {user?.name || 'Usuário'}! 👋
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-4 sm:p-6 text-white">
+        <h1 className="text-xl sm:text-2xl font-bold text-white">
+          Bem vindo, {user?.name || 'Usuário'}
         </h1>
-        <p className="text-blue-100 mt-1">
+        <p className="text-blue-100 mt-1 text-sm sm:text-base">
           Aqui está um resumo dos seus veículos e atividades recentes
         </p>
       </div>
 
       {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <StatsCard
           title="Total de Veículos"
           value={stats.totalVehicles}
@@ -131,7 +131,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Grid principal de componentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Coluna da esquerda - Manutenções */}
         <div className="lg:col-span-1">
           <RecentMaintenances />

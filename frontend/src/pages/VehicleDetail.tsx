@@ -30,12 +30,20 @@ export const VehicleDetail: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMileageModal, setShowMileageModal] = useState(false);
   const [newMileage, setNewMileage] = useState(selectedVehicle?.mileage || 0);
+  const [newMileageDisplay, setNewMileageDisplay] = useState(selectedVehicle?.mileage?.toString() || '');
 
   useEffect(() => {
     if (id) {
       selectVehicle(id);
     }
   }, [id, selectVehicle]);
+
+  // Atualizar o valor de exibição quando o veículo for carregado
+  useEffect(() => {
+    if (selectedVehicle?.mileage !== undefined) {
+      setNewMileageDisplay(selectedVehicle.mileage.toString());
+    }
+  }, [selectedVehicle?.mileage]);
 
   if (!selectedVehicle) {
     return (
@@ -84,10 +92,14 @@ export const VehicleDetail: React.FC = () => {
   const handleUpdateMileage = async () => {
     if (selectedVehicle?.id && newMileage !== selectedVehicle.mileage) {
       try {
-        await updateVehicleMileage(selectedVehicle.id, newMileage);
+        const result = await updateVehicleMileage(selectedVehicle.id, newMileage);
         
-        // Mostrar apenas uma notificação simples de sucesso
-        toast.success('Quilometragem atualizada com sucesso!');
+        // Mostrar notificação de sucesso
+        if (result.triggeredReminders && result.triggeredReminders > 0) {
+          toast.success(`Quilometragem atualizada! ${result.triggeredReminders} lembrete(s) ativado(s).`);
+        } else {
+          toast.success('Quilometragem atualizada com sucesso!');
+        }
         
         setShowMileageModal(false);
       } catch (error) {
@@ -266,7 +278,7 @@ export const VehicleDetail: React.FC = () => {
             )}
 
             {vehicleStats && (
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-primary-50 rounded-lg p-4">
                   <div className="flex items-center">
                     <div className="mr-3 text-primary-600">
@@ -374,7 +386,7 @@ export const VehicleDetail: React.FC = () => {
       </div>
 
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-medium text-gray-900">
@@ -651,13 +663,30 @@ export const VehicleDetail: React.FC = () => {
                 Nova Quilometragem (km)
               </label>
               <input
-                type="number"
-                value={newMileage}
-                onChange={(e) => setNewMileage(parseInt(e.target.value) || 0)}
-                min="0"
+                type="text"
+                value={newMileageDisplay}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setNewMileageDisplay(value);
+                  
+                  // Processar o valor para o estado interno
+                  let processedValue = value.replace(',', '.');
+                  processedValue = processedValue.replace(/[^0-9.]/g, '');
+                  
+                  // Garante que só há um ponto decimal
+                  const parts = processedValue.split('.');
+                  if (parts.length > 2) {
+                    processedValue = parts[0] + '.' + parts.slice(1).join('');
+                  }
+                  
+                  setNewMileage(parseFloat(processedValue) || 0);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Digite a nova quilometragem"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Aceita valores decimais (ex: 32,2 ou 32.2)
+              </p>
               <p className="text-xs text-gray-500 mt-1">
                 Atual: {selectedVehicle?.mileage?.toLocaleString('pt-BR')} km
               </p>

@@ -4,7 +4,7 @@ import { Home, Car, PenTool as Tool, Clock, BarChart } from 'lucide-react';
 
 const MobileNav: React.FC = () => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-2 px-4 z-10 lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-3 px-4 z-10 lg:hidden">
       <NavLink 
         to="/" 
         className={({ isActive }) => 

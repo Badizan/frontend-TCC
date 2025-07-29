@@ -8,9 +8,7 @@ const mileageNotificationService = new MileageNotificationService();
 const createMileageReminderSchema = z.object({
     vehicleId: z.string().uuid('Invalid vehicle ID'),
     description: z.string().min(1, 'Description is required'),
-    dueMileage: z.number().min(1, 'Due mileage must be at least 1'),
-    intervalMileage: z.number().min(1, 'Interval mileage must be at least 1').optional(),
-    recurring: z.boolean().default(false)
+    dueMileage: z.number().min(0.1, 'Due mileage must be at least 0.1')
 });
 
 const updateMileageSchema = z.object({
@@ -47,9 +45,7 @@ export class MileageReminderController extends BaseController {
             const reminder = await mileageNotificationService.createMileageReminder({
                 vehicleId: data.vehicleId,
                 description: data.description,
-                dueMileage: data.dueMileage,
-                intervalMileage: data.intervalMileage,
-                recurring: data.recurring
+                dueMileage: data.dueMileage
             });
 
             console.log('✅ MileageReminderController: Lembrete criado com sucesso:', reminder.id);
@@ -85,12 +81,14 @@ export class MileageReminderController extends BaseController {
                 return reply.status(403).send({ message: 'Access denied to this vehicle' });
             }
 
-            await mileageNotificationService.updateVehicleMileage(data.vehicleId, data.newMileage);
+            const result = await mileageNotificationService.updateVehicleMileage(data.vehicleId, data.newMileage);
 
             console.log('✅ MileageReminderController: Quilometragem atualizada com sucesso');
             return this.sendResponse(reply, {
                 message: 'Mileage updated successfully',
-                newMileage: data.newMileage
+                newMileage: data.newMileage,
+                triggeredReminders: result.triggeredReminders.length,
+                reminders: result.triggeredReminders
             });
 
         } catch (error) {

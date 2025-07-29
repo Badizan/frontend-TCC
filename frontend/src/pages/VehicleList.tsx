@@ -151,7 +151,7 @@ const VehicleList: React.FC = () => {
         </div>
         <button
           onClick={() => navigate('/vehicles/new')}
-          className="btn-primary"
+          className="btn-primary w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
           Novo Veículo
@@ -174,10 +174,10 @@ const VehicleList: React.FC = () => {
             />
           </div>
           
-          <div className="flex space-x-2">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`btn-secondary flex items-center ${showFilters ? 'bg-blue-50 text-blue-700' : ''}`}
+              className={`btn-secondary flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-700' : ''}`}
             >
               <Filter className="w-4 h-4 mr-2" />
               Filtros
@@ -203,7 +203,7 @@ const VehicleList: React.FC = () => {
         {/* Advanced Filters */}
         {showFilters && (
           <div className="bg-gray-50 p-4 rounded-lg space-y-4 animate-slide-down">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Veículo
@@ -287,7 +287,7 @@ const VehicleList: React.FC = () => {
           )}
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredVehicles.map((vehicle) => {
             const status = getStatusBadge();
             return (

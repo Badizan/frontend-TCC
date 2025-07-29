@@ -18,10 +18,11 @@ export const MileageReminderCard: React.FC<MileageReminderCardProps> = ({
   const [reminders, setReminders] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     description: '',
-    dueMileage: currentMileage + 1000,
-    intervalMileage: 1000,
-    recurring: false
+    dueMileage: currentMileage + 1000
   });
+
+  // Estado separado para exibição da quilometragem
+  const [dueMileageDisplay, setDueMileageDisplay] = useState((currentMileage + 1000).toString());
 
   const { createMileageReminder, getMileageReminders, calculateNextMaintenance, vehicles } = useAppStore();
   
@@ -32,6 +33,11 @@ export const MileageReminderCard: React.FC<MileageReminderCardProps> = ({
   useEffect(() => {
     loadReminders();
   }, [vehicleId]);
+
+  // Atualizar o valor de exibição quando a quilometragem atual mudar
+  useEffect(() => {
+    setDueMileageDisplay((currentMileage + 1000).toString());
+  }, [currentMileage]);
 
   const loadReminders = async () => {
     try {
@@ -64,9 +70,7 @@ export const MileageReminderCard: React.FC<MileageReminderCardProps> = ({
       await createMileageReminder({
         vehicleId,
         description: formData.description,
-        dueMileage: formData.dueMileage,
-        intervalMileage: formData.recurring ? formData.intervalMileage : undefined,
-        recurring: formData.recurring
+        dueMileage: formData.dueMileage
       });
 
       // Mostrar notificação personalizada
@@ -94,9 +98,7 @@ export const MileageReminderCard: React.FC<MileageReminderCardProps> = ({
       setShowForm(false);
       setFormData({
         description: '',
-        dueMileage: currentMileage + 1000,
-        intervalMileage: 1000,
-        recurring: false
+        dueMileage: currentMileage + 1000
       });
       loadReminders();
     } catch (error: any) {
@@ -184,10 +186,24 @@ export const MileageReminderCard: React.FC<MileageReminderCardProps> = ({
                 Quilometragem Alvo *
               </label>
               <input
-                type="number"
-                value={formData.dueMileage}
-                onChange={(e) => setFormData(prev => ({ ...prev, dueMileage: parseInt(e.target.value) || 0 }))}
-                min={currentMileage + 1}
+                type="text"
+                value={dueMileageDisplay}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setDueMileageDisplay(value);
+                  
+                  // Processar o valor para o estado interno
+                  let processedValue = value.replace(',', '.');
+                  processedValue = processedValue.replace(/[^0-9.]/g, '');
+                  
+                  // Garante que só há um ponto decimal
+                  const parts = processedValue.split('.');
+                  if (parts.length > 2) {
+                    processedValue = parts[0] + '.' + parts.slice(1).join('');
+                  }
+                  
+                  setFormData(prev => ({ ...prev, dueMileage: parseFloat(processedValue) || 0 }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
@@ -196,35 +212,7 @@ export const MileageReminderCard: React.FC<MileageReminderCardProps> = ({
               </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Recorrente
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={formData.recurring}
-                  onChange={(e) => setFormData(prev => ({ ...prev, recurring: e.target.checked }))}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-600">Repetir a cada</span>
-              </div>
-            </div>
 
-            {formData.recurring && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Intervalo (km)
-                </label>
-                <input
-                  type="number"
-                  value={formData.intervalMileage}
-                  onChange={(e) => setFormData(prev => ({ ...prev, intervalMileage: parseInt(e.target.value) || 1000 }))}
-                  min="100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            )}
           </div>
 
           <div className="flex justify-end space-x-3 mt-4">
@@ -273,11 +261,6 @@ export const MileageReminderCard: React.FC<MileageReminderCardProps> = ({
                   <p className="font-medium text-gray-900">{reminder.description}</p>
                   <p className="text-sm text-gray-600">
                     {reminder.dueMileage?.toLocaleString('pt-BR')} km
-                    {reminder.recurring && reminder.intervalMileage && (
-                      <span className="ml-2 text-blue-600">
-                        (a cada {reminder.intervalMileage.toLocaleString('pt-BR')} km)
-                      </span>
-                    )}
                   </p>
                 </div>
               </div>

@@ -421,8 +421,6 @@ export class ApiService {
         vehicleId: string;
         description: string;
         dueMileage: number;
-        intervalMileage?: number;
-        recurring?: boolean;
     }): Promise<any> {
         try {
             console.log('📝 API: Criando lembrete de quilometragem...');

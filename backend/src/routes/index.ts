@@ -669,9 +669,7 @@ export async function routes(app: FastifyInstance) {
         properties: {
           vehicleId: { type: 'string', format: 'uuid' },
           description: { type: 'string', minLength: 1 },
-          dueMileage: { type: 'number', minimum: 1 },
-          intervalMileage: { type: 'number', minimum: 1 },
-          recurring: { type: 'boolean', default: false }
+          dueMileage: { type: 'number', minimum: 1 }
         }
       }
     },

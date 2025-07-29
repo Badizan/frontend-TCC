@@ -29,9 +29,13 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
     ownerId: initialData?.ownerId || user?.id || '',
   });
 
+  // Estado separado para o valor de exibição da quilometragem
+  const [mileageDisplay, setMileageDisplay] = useState(initialData?.mileage?.toString() || '');
+
   // Estados para os códigos da FIPE
   const [selectedBrandCode, setSelectedBrandCode] = useState<string>('');
   const [selectedModelCode, setSelectedModelCode] = useState<string>('');
+  const [selectedYearCode, setSelectedYearCode] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
 
   // Hook para dados de veículos
@@ -85,21 +89,36 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
     }
   }, [initialData?.color]);
 
+  // Efeito para carregar ano selecionado quando estiver editando
+  useEffect(() => {
+    if (initialData?.year && years.length > 0) {
+      console.log('🔄 VehicleForm: Carregando ano para edição:', initialData.year);
+      
+      // Buscar o ano baseado no valor numérico
+      const year = years.find(y => {
+        const yearMatch = y.nome.match(/\d{4}/);
+        return yearMatch && parseInt(yearMatch[0]) === initialData.year;
+      });
+      
+      if (year) {
+        console.log(`✅ VehicleForm: Ano encontrado: ${year.nome} (${year.codigo})`);
+        setSelectedYearCode(year.codigo);
+      } else {
+        console.warn(`⚠️ VehicleForm: Ano não encontrado na lista: ${initialData.year}`);
+      }
+    }
+  }, [initialData?.year, years]);
+
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Efeito para carregar modelos quando a marca é selecionada
   useEffect(() => {
     if (selectedBrandCode) {
       fetchModels(selectedBrandCode);
-      // Limpar seleções dependentes apenas se não estiver editando
-      if (!initialData?.id) {
-        setSelectedModelCode('');
-        setFormData(prev => ({ ...prev, model: '' }));
-      }
     } else {
       clearData();
     }
-  }, [selectedBrandCode, fetchModels, clearData, initialData?.id]);
+  }, [selectedBrandCode, fetchModels, clearData]);
 
   // Efeito para carregar anos quando o modelo é selecionado
   useEffect(() => {
@@ -172,9 +191,47 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
       }
     }
     
+    // Formatação especial para quilometragem - aceita vírgula e converte para ponto
+    if (name === 'mileage') {
+      // Atualizar o valor de exibição (permitir digitação de pontos e vírgulas)
+      setMileageDisplay(value);
+      
+      // Processar o valor para o estado interno
+      let processedValue = value.replace(',', '.');
+      processedValue = processedValue.replace(/[^0-9.]/g, '');
+      
+      // Garante que só há um ponto decimal
+      const parts = processedValue.split('.');
+      if (parts.length > 2) {
+        processedValue = parts[0] + '.' + parts.slice(1).join('');
+      }
+      
+      // Atualizar o estado interno com o valor numérico
+      if (processedValue !== '') {
+        setFormData(prev => ({
+          ...prev,
+          [name]: parseFloat(processedValue) || 0,
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [name]: 0,
+        }));
+      }
+      
+      // Limpar erro quando o usuário começar a digitar
+      if (errors[name]) {
+        setErrors(prev => ({ ...prev, [name]: '' }));
+      }
+      
+      return; // Sair da função para não executar o setFormData geral
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'year' || name === 'mileage' ? Number(value) : processedValue,
+      [name]: name === 'year' ? Number(value) : 
+              name === 'mileage' ? parseFloat(processedValue) || 0 : 
+              processedValue,
     }));
 
     // Limpar erro quando o usuário começar a digitar
@@ -194,10 +251,22 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
       setFormData(prev => ({ ...prev, brand: selectedBrand.nome }));
     }
     
-    // Limpar erro da marca
-    if (errors.brand) {
-      setErrors(prev => ({ ...prev, brand: '' }));
-    }
+    // Limpar dados dependentes quando marca mudar
+    setSelectedModelCode('');
+    setSelectedYearCode('');
+    setFormData(prev => ({ 
+      ...prev, 
+      model: '', 
+      year: new Date().getFullYear() 
+    }));
+    
+    // Limpar erros relacionados
+    setErrors(prev => ({ 
+      ...prev, 
+      brand: '', 
+      model: '', 
+      year: '' 
+    }));
   };
 
   // Handler específico para seleção de modelo da FIPE
@@ -211,15 +280,25 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
       setFormData(prev => ({ ...prev, model: selectedModel.nome }));
     }
     
-    // Limpar erro do modelo
-    if (errors.model) {
-      setErrors(prev => ({ ...prev, model: '' }));
-    }
+    // Limpar dados dependentes quando modelo mudar
+    setSelectedYearCode('');
+    setFormData(prev => ({ 
+      ...prev, 
+      year: new Date().getFullYear() 
+    }));
+    
+    // Limpar erros relacionados
+    setErrors(prev => ({ 
+      ...prev, 
+      model: '', 
+      year: '' 
+    }));
   };
 
   // Handler específico para seleção de ano da FIPE
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const yearCode = e.target.value;
+    setSelectedYearCode(yearCode);
     
     // Encontrar o ano selecionado
     const selectedYear = years.find(year => year.codigo === yearCode);
@@ -334,7 +413,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* Marca */}
         <div>
           <label htmlFor="brand" className="block text-sm font-medium text-gray-700 mb-2">
@@ -394,6 +473,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
           <select
             id="year"
             name="year"
+            value={selectedYearCode}
             onChange={handleYearChange}
             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.year ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
@@ -471,7 +551,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
             {/* Cores Neutras */}
             <div>
               <h4 className="text-xs font-medium text-gray-600 mb-2">Cores Neutras</h4>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {vehicleColors.filter(c => c.category === 'neutras').map((color) => (
                   <button
                     key={color.value}
@@ -506,7 +586,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
             {/* Cores Quentes */}
             <div>
               <h4 className="text-xs font-medium text-gray-600 mb-2">Cores Quentes</h4>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {vehicleColors.filter(c => c.category === 'quentes').map((color) => (
                   <button
                     key={color.value}
@@ -541,7 +621,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
             {/* Cores Frias */}
             <div>
               <h4 className="text-xs font-medium text-gray-600 mb-2">Cores Frias</h4>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {vehicleColors.filter(c => c.category === 'frias').map((color) => (
                   <button
                     key={color.value}
@@ -576,7 +656,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
             {/* Cores Metálicas */}
             <div>
               <h4 className="text-xs font-medium text-gray-600 mb-2">Cores Metálicas</h4>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {vehicleColors.filter(c => c.category === 'metalicas').map((color) => (
                   <button
                     key={color.value}
@@ -610,7 +690,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
 
             {/* Outro */}
             <div>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {vehicleColors.filter(c => c.category === 'outros').map((color) => (
                   <button
                     key={color.value}
@@ -676,17 +756,16 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
         </div>
 
         {/* Quilometragem */}
-        <div className="md:col-span-2">
+        <div className="col-span-1 md:col-span-2">
           <label htmlFor="mileage" className="block text-sm font-medium text-gray-700 mb-2">
             Quilometragem Atual (km)
           </label>
           <input
-            type="number"
+            type="text"
             id="mileage"
             name="mileage"
-            value={formData.mileage}
+            value={mileageDisplay}
             onChange={handleChange}
-            min="0"
             placeholder="0"
             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.mileage ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
@@ -694,6 +773,9 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
             disabled={isLoading}
           />
           {errors.mileage && <p className="mt-1 text-sm text-red-600">{errors.mileage}</p>}
+          <p className="mt-1 text-xs text-gray-500">
+            Aceita valores decimais (ex: 32,2 ou 32.2)
+          </p>
           {initialData?.mileage && (
             <p className="mt-1 text-xs text-gray-500">
               Quilometragem atual: {initialData.mileage.toLocaleString('pt-BR')} km
@@ -734,7 +816,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
       </div>
 
       {/* Botões */}
-      <div className="flex justify-end space-x-3">
+      <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
         <button
           type="button"
           onClick={() => navigate(-1)}

@@ -54,32 +54,32 @@ const StatsCard: React.FC<StatsCardProps> = ({
   const currentColor = colorClasses[color];
 
   return (
-    <div className={`${currentColor.bg} border ${currentColor.accent} rounded-xl p-6 hover:shadow-md transition-shadow duration-200`}>
-      <div className="flex items-center justify-between mb-4">
-        <div className={`${currentColor.iconBg} p-3 rounded-lg`}>
+    <div className={`${currentColor.bg} border ${currentColor.accent} rounded-xl p-3 sm:p-6 hover:shadow-md transition-shadow duration-200`}>
+      <div className="flex items-center justify-between mb-2 sm:mb-4">
+        <div className={`${currentColor.iconBg} p-2 sm:p-3 rounded-lg`}>
           <div className={currentColor.iconText}>
             {icon}
           </div>
         </div>
         {trend && (
-          <div className={`flex items-center space-x-1 text-sm ${
+          <div className={`flex items-center space-x-1 text-xs sm:text-sm ${
             trendUp ? 'text-green-600' : 'text-red-600'
           }`}>
             {trendUp ? (
-              <TrendingUp className="h-4 w-4" />
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
             ) : (
-              <TrendingDown className="h-4 w-4" />
+              <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4" />
             )}
-            <span className="font-medium">{trend}</span>
+            <span className="font-medium hidden sm:inline">{trend}</span>
           </div>
         )}
       </div>
       
       <div>
-        <h3 className="text-sm font-medium text-gray-600 mb-1">
+        <h3 className="text-xs sm:text-sm font-medium text-gray-600 mb-1">
           {title}
         </h3>
-        <p className="text-2xl font-bold text-gray-900">
+        <p className="text-lg sm:text-2xl font-bold text-gray-900">
           {value}
         </p>
       </div>

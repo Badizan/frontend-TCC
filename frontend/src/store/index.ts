@@ -51,7 +51,7 @@ interface AppState {
   resetPassword: (token: string, password: string) => Promise<any>;
   validateResetToken: (token: string) => Promise<boolean>;
   // Mileage Reminders
-  createMileageReminder: (data: { vehicleId: string; description: string; dueMileage: number; intervalMileage?: number; recurring?: boolean }) => Promise<any>;
+  createMileageReminder: (data: { vehicleId: string; description: string; dueMileage: number }) => Promise<any>;
   updateVehicleMileage: (vehicleId: string, newMileage: number) => Promise<any>;
   getMileageReminders: (vehicleId: string) => Promise<any[]>;
   calculateNextMaintenance: (vehicleId: string, intervalKm: number) => Promise<any>;
@@ -949,7 +949,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Mileage Reminders
-  createMileageReminder: async (data: { vehicleId: string; description: string; dueMileage: number; intervalMileage?: number; recurring?: boolean }) => {
+  createMileageReminder: async (data: { vehicleId: string; description: string; dueMileage: number }) => {
     try {
       const { user } = get();
       if (!user || !user.id) {
@@ -995,6 +995,28 @@ export const useAppStore = create<AppState>((set, get) => ({
       const selectedVehicle = get().selectedVehicle;
       if (selectedVehicle && selectedVehicle.id === vehicleId) {
         set({ selectedVehicle: { ...selectedVehicle, mileage: newMileage } });
+      }
+
+      // Verificar se há lembretes ativados na resposta do backend
+      if (result.reminders && result.reminders.length > 0) {
+        console.log('🔔 Store: Lembretes por quilometragem ativados:', result.reminders.length);
+
+        // Mostrar notificação simples para cada lembrete ativado
+        result.reminders.forEach((reminder: any) => {
+          const vehicle = updatedVehicles.find(v => v.id === vehicleId);
+          if (vehicle) {
+            // Usar toast simples em vez de componente customizado
+            import('react-hot-toast').then(({ toast }) => {
+              toast.success(
+                `🔔 ${reminder.description} - Quilometragem atingida!`,
+                {
+                  duration: 8000,
+                  position: 'top-right',
+                }
+              );
+            });
+          }
+        });
       }
 
       console.log('✅ Store: Quilometragem atualizada');

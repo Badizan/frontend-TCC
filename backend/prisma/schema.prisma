@@ -36,7 +36,7 @@ model Vehicle {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   color          String?
-  mileage        Int?
+  mileage        Float?
   expenses       Expense[]
   mileageRecords MileageRecord[]
   reminders      Reminder[]
@@ -85,9 +85,9 @@ model Reminder {
   completed       Boolean      @default(false)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
-  dueMileage      Int?
+  dueMileage      Float?
   intervalDays    Int?
-  intervalMileage Int?
+  intervalMileage Float?
   lastNotified    DateTime?
   recurring       Boolean      @default(false)
   type            ReminderType @default(TIME_BASED)
@@ -103,7 +103,7 @@ model Expense {
   date        DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  mileage     Int?
+  mileage     Float?
   vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
 }
 
@@ -141,7 +141,7 @@ model UserSettings {
 model MileageRecord {
   id        String   @id @default(uuid())
   vehicleId String
-  mileage   Int
+  mileage   Float
   date      DateTime
   notes     String?
   createdAt DateTime @default(now())

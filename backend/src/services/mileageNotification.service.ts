@@ -13,9 +13,11 @@ export class MileageNotificationService {
     /**
      * Verifica se há lembretes baseados em quilometragem que devem ser disparados
      */
-    async checkMileageBasedReminders(vehicleId: string, currentMileage: number): Promise<void> {
+    async checkMileageBasedReminders(vehicleId: string, currentMileage: number): Promise<any[]> {
         try {
             console.log(`🔍 MileageNotificationService: Verificando lembretes para veículo ${vehicleId} com ${currentMileage}km`);
+
+            const triggeredReminders: any[] = [];
 
             // Buscar todos os lembretes baseados em quilometragem para este veículo
             const mileageReminders = await prisma.reminder.findMany({
@@ -41,6 +43,7 @@ export class MileageNotificationService {
             for (const reminder of mileageReminders) {
                 if (reminder.dueMileage && currentMileage >= reminder.dueMileage) {
                     await this.triggerMileageReminder(reminder, currentMileage);
+                    triggeredReminders.push(reminder);
                 }
             }
 
@@ -68,11 +71,15 @@ export class MileageNotificationService {
             for (const reminder of hybridReminders) {
                 if (reminder.dueMileage && currentMileage >= reminder.dueMileage) {
                     await this.triggerMileageReminder(reminder, currentMileage);
+                    triggeredReminders.push(reminder);
                 }
             }
 
+            return triggeredReminders;
+
         } catch (error) {
             console.error('❌ MileageNotificationService: Erro ao verificar lembretes baseados em quilometragem:', error);
+            return [];
         }
     }
 
@@ -109,24 +116,13 @@ export class MileageNotificationService {
                 data: { lastNotified: new Date() }
             });
 
-            // Se o lembrete é recorrente, calcular próxima quilometragem
-            if (reminder.recurring && reminder.intervalMileage) {
-                const nextMileage = reminder.dueMileage + reminder.intervalMileage;
-                await prisma.reminder.update({
-                    where: { id: reminder.id },
-                    data: { dueMileage: nextMileage }
-                });
+            // Marcar como concluído
+            await prisma.reminder.update({
+                where: { id: reminder.id },
+                data: { completed: true }
+            });
 
-                console.log(`🔄 MileageNotificationService: Próximo lembrete agendado para ${nextMileage}km`);
-            } else {
-                // Marcar como concluído se não for recorrente
-                await prisma.reminder.update({
-                    where: { id: reminder.id },
-                    data: { completed: true }
-                });
-
-                console.log(`✅ MileageNotificationService: Lembrete ${reminder.id} marcado como concluído`);
-            }
+            console.log(`✅ MileageNotificationService: Lembrete ${reminder.id} marcado como concluído`);
 
         } catch (error) {
             console.error('❌ MileageNotificationService: Erro ao disparar notificação:', error);
@@ -140,8 +136,6 @@ export class MileageNotificationService {
         vehicleId: string;
         description: string;
         dueMileage: number;
-        intervalMileage?: number;
-        recurring?: boolean;
     }): Promise<any> {
         try {
             console.log(`📝 MileageNotificationService: Criando lembrete baseado em quilometragem para veículo ${data.vehicleId}`);
@@ -151,9 +145,7 @@ export class MileageNotificationService {
                     vehicleId: data.vehicleId,
                     description: data.description,
                     dueMileage: data.dueMileage,
-                    intervalMileage: data.intervalMileage,
-                    recurring: data.recurring || false,
-                    type: data.recurring ? 'MILEAGE_BASED' : 'MILEAGE_BASED',
+                    type: 'MILEAGE_BASED',
                     completed: false
                 },
                 include: {
@@ -177,7 +169,7 @@ export class MileageNotificationService {
     /**
      * Atualiza a quilometragem de um veículo e verifica lembretes
      */
-    async updateVehicleMileage(vehicleId: string, newMileage: number): Promise<void> {
+    async updateVehicleMileage(vehicleId: string, newMileage: number): Promise<{ triggeredReminders: any[] }> {
         try {
             console.log(`🔄 MileageNotificationService: Atualizando quilometragem do veículo ${vehicleId} para ${newMileage}km`);
 
@@ -197,10 +189,12 @@ export class MileageNotificationService {
                 }
             });
 
-            // Verificar lembretes baseados em quilometragem
-            await this.checkMileageBasedReminders(vehicleId, newMileage);
+            // Verificar lembretes baseados em quilometragem e retornar os ativados
+            const triggeredReminders = await this.checkMileageBasedReminders(vehicleId, newMileage);
 
-            console.log(`✅ MileageNotificationService: Quilometragem atualizada e lembretes verificados`);
+            console.log(`✅ MileageNotificationService: Quilometragem atualizada e ${triggeredReminders.length} lembretes ativados`);
+
+            return { triggeredReminders };
 
         } catch (error) {
             console.error('❌ MileageNotificationService: Erro ao atualizar quilometragem:', error);

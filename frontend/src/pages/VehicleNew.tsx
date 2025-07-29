@@ -54,24 +54,24 @@ export const VehicleNew: React.FC = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex items-center mb-6">
+      <div className="flex items-center mb-4 sm:mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="mr-4 p-2 rounded-full hover:bg-gray-100"
+          className="mr-3 sm:mr-4 p-2 rounded-full hover:bg-gray-100"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Adicionar Novo Veículo</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Adicionar Novo Veículo</h1>
       </div>
 
       {/* Exibir erro se houver */}
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="mb-4 sm:mb-6 bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
           <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
+            <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 mr-2 sm:mr-3" />
             <div>
-              <h3 className="text-sm font-medium text-red-800">Erro ao criar veículo</h3>
-              <p className="text-sm text-red-700 mt-1">{error}</p>
+              <h3 className="text-xs sm:text-sm font-medium text-red-800">Erro ao criar veículo</h3>
+              <p className="text-xs sm:text-sm text-red-700 mt-1">{error}</p>
             </div>
           </div>
         </div>

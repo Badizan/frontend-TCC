@@ -23,6 +23,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     mileage: 0,
   });
 
+  // Estado separado para exibição da quilometragem
+  const [mileageDisplay, setMileageDisplay] = useState('');
+
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const validateForm = () => {
@@ -169,13 +172,27 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             Quilometragem (opcional)
           </label>
           <input
-            type="number"
+            type="text"
             id="mileage"
             name="mileage"
-            value={formData.mileage}
-            onChange={handleChange}
+            value={mileageDisplay}
+            onChange={(e) => {
+              const value = e.target.value;
+              setMileageDisplay(value);
+              
+              // Processar o valor para o estado interno
+              let processedValue = value.replace(',', '.');
+              processedValue = processedValue.replace(/[^0-9.]/g, '');
+              
+              // Garante que só há um ponto decimal
+              const parts = processedValue.split('.');
+              if (parts.length > 2) {
+                processedValue = parts[0] + '.' + parts.slice(1).join('');
+              }
+              
+              setFormData(prev => ({ ...prev, mileage: parseFloat(processedValue) || 0 }));
+            }}
             className="form-input"
-            min="0"
             placeholder="Ex: 45000"
           />
         </div>

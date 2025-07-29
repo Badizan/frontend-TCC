@@ -13,9 +13,9 @@ const createReminderSchema = z.object({
   description: z.string().min(1, 'Description is required'),
   type: z.enum(['TIME_BASED', 'MILEAGE_BASED', 'HYBRID']).default('TIME_BASED'),
   dueDate: z.string().transform(str => parseLocalDate(str)).optional(),
-  dueMileage: z.number().positive().optional(),
+  dueMileage: z.number().min(0.1).optional(),
   intervalDays: z.number().positive().optional(),
-  intervalMileage: z.number().positive().optional(),
+  intervalMileage: z.number().min(0.1).optional(),
   recurring: z.boolean().default(false)
 });
 
@@ -23,9 +23,9 @@ const updateReminderSchema = z.object({
   description: z.string().min(1).optional(),
   type: z.enum(['TIME_BASED', 'MILEAGE_BASED', 'HYBRID']).optional(),
   dueDate: z.string().transform(str => parseLocalDate(str)).optional(),
-  dueMileage: z.number().positive().optional(),
+  dueMileage: z.number().min(0.1).optional(),
   intervalDays: z.number().positive().optional(),
-  intervalMileage: z.number().positive().optional(),
+  intervalMileage: z.number().min(0.1).optional(),
   recurring: z.boolean().optional(),
   completed: z.boolean().optional()
 });
