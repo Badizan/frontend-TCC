@@ -29,6 +29,7 @@ export const errorMessages: { [key: string]: string } = {
     'A placa': 'A placa',
     'já está cadastrada no sistema': 'já está cadastrada no sistema',
     'já está sendo usada por outro veículo': 'já está sendo usada por outro veículo',
+    'Placa já está em uso': 'Esta placa já está sendo usada por outro veículo',
     'Vehicle not found': 'Veículo não encontrado',
     'Access denied to this vehicle': 'Acesso negado a este veículo',
     'Invalid license plate format': 'Formato de placa inválido (ex: ABC-1234 ou ABC-1D23)',
@@ -53,10 +54,10 @@ export const translateError = (error: string): string => {
         if (lowerError.includes('já está cadastrada') || lowerError.includes('already registered')) {
             return 'Esta placa já está cadastrada no sistema. Use uma placa diferente.';
         }
-        if (lowerError.includes('já está sendo usada') || lowerError.includes('already in use')) {
+        if (lowerError.includes('já está sendo usada') || lowerError.includes('already in use') || lowerError.includes('em uso')) {
             return 'Esta placa já está sendo usada por outro veículo. Use uma placa diferente.';
         }
-        if (lowerError.includes('já possui') && lowerError.includes('veículo')) {
+        if (lowerError.includes('já possui') && (lowerError.includes('veículo') || lowerError.includes('outro'))) {
             return 'Você já possui um veículo com esta placa. Use uma placa diferente.';
         }
         if (lowerError.includes('invalid') || lowerError.includes('formato')) {
@@ -65,6 +66,8 @@ export const translateError = (error: string): string => {
         if (lowerError.includes('required') || lowerError.includes('obrigatória')) {
             return 'Placa é obrigatória. Preencha este campo.';
         }
+        // Captura genérica para qualquer erro de placa
+        return 'Erro relacionado à placa do veículo. Verifique se a placa está correta e não está sendo usada por outro veículo.';
     }
 
     if (lowerError.includes('email')) {

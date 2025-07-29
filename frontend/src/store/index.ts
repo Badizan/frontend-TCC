@@ -479,9 +479,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       return newVehicle;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Store: Erro ao criar veículo:', error);
       set({ loading: false });
+
+      // Tratamento específico para erros de placa duplicada
+      if (error.response?.data?.errorType === 'DUPLICATE_LICENSE_PLATE' ||
+        error.response?.data?.errorType === 'LICENSE_PLATE_EXISTS') {
+        throw new Error(error.response.data.message || 'Placa já está em uso');
+      }
+
+      // Se é um erro de rede ou outro tipo
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+
       throw error;
     }
   },
@@ -508,9 +520,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       }));
 
       return updatedVehicle;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Store: Erro ao atualizar veículo:', error);
       set({ loading: false });
+
+      // Tratamento específico para erros de placa duplicada
+      if (error.response?.data?.errorType === 'DUPLICATE_LICENSE_PLATE' ||
+        error.response?.data?.errorType === 'LICENSE_PLATE_EXISTS') {
+        throw new Error(error.response.data.message || 'Placa já está em uso');
+      }
+
+      // Se é um erro de rede ou outro tipo
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+
       throw error;
     }
   },

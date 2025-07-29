@@ -54,13 +54,18 @@ export class VehicleService {
             })
         } catch (error: any) {
             // Log do erro para debug
-            console.error('Erro ao criar veículo:', error.message)
+            console.error('❌ VehicleService: Erro ao criar veículo:', error.message)
 
             // Tratar erros específicos do Prisma
             if (error.code === 'P2002') {
                 if (error.meta?.target?.includes('licensePlate')) {
                     throw new Error(`A placa ${data.licensePlate} já está cadastrada no sistema`)
                 }
+            }
+
+            // Se é um erro que já foi tratado (nossa validação customizada)
+            if (error.message && error.message.includes('já possui um veículo')) {
+                throw error
             }
 
             // Re-throw outros erros
@@ -185,7 +190,13 @@ export class VehicleService {
                 }
             }
 
-            throw error
+            // Se é um erro que já foi tratado (nossa validação customizada)
+            if (error.message && error.message.includes('já possui outro veículo')) {
+                throw error
+            }
+
+            console.error('❌ VehicleService: Erro não tratado no update:', error)
+            throw new Error('Erro interno ao atualizar veículo')
         }
     }
 
@@ -199,7 +210,8 @@ export class VehicleService {
                         select: {
                             maintenances: true,
                             reminders: true,
-                            expenses: true
+                            expenses: true,
+                            mileageRecords: true
                         }
                     }
                 }
@@ -211,6 +223,16 @@ export class VehicleService {
 
             // Deletar em cascata todos os registros relacionados
             await prisma.$transaction(async (tx) => {
+                // Deletar mileage records relacionados
+                await tx.mileageRecord.deleteMany({
+                    where: { vehicleId: id }
+                })
+
+                // Deletar predictions relacionadas
+                await tx.prediction.deleteMany({
+                    where: { vehicleId: id }
+                })
+
                 // Deletar expenses relacionadas
                 await tx.expense.deleteMany({
                     where: { vehicleId: id }
@@ -226,6 +248,16 @@ export class VehicleService {
                     where: { vehicleId: id }
                 })
 
+                // Deletar notificações relacionadas ao veículo
+                await tx.notification.deleteMany({
+                    where: {
+                        data: {
+                            path: ['vehicleId'],
+                            equals: id
+                        }
+                    }
+                })
+
                 // Deletar o veículo
                 await tx.vehicle.delete({
                     where: { id }
@@ -233,6 +265,8 @@ export class VehicleService {
             })
 
             console.log(`✅ Veículo ${vehicle.brand} ${vehicle.model} (${vehicle.licensePlate}) e todos os registros relacionados foram excluídos`)
+            console.log(`📊 Registros deletados: ${vehicle._count.maintenances} manutenções, ${vehicle._count.reminders} lembretes, ${vehicle._count.expenses} despesas, ${vehicle._count.mileageRecords} registros de quilometragem`)
+            console.log(`🗑️ Também foram deletados: predictions e notificações relacionadas`)
 
             return { message: 'Veículo e registros relacionados excluídos com sucesso' }
         } catch (error: any) {

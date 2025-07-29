@@ -67,6 +67,28 @@ export class VehicleController extends BaseController {
       return this.sendResponse(reply, vehicle, 201);
     } catch (error) {
       console.error('❌ VehicleController: Erro ao criar veículo:', error);
+
+      // Tratamento específico para erros de placa duplicada
+      if (error instanceof Error) {
+        if (error.message.includes('já possui um veículo')) {
+          console.log('🚨 VehicleController: Tentativa de criar veículo com placa duplicada:', error.message);
+          return reply.status(400).send({
+            message: error.message,
+            statusCode: 400,
+            errorType: 'DUPLICATE_LICENSE_PLATE'
+          });
+        }
+
+        if (error.message.includes('já está cadastrada no sistema')) {
+          console.log('🚨 VehicleController: Placa já existe no sistema:', error.message);
+          return reply.status(400).send({
+            message: error.message,
+            statusCode: 400,
+            errorType: 'LICENSE_PLATE_EXISTS'
+          });
+        }
+      }
+
       return this.sendError(reply, error as Error);
     }
   }
@@ -187,6 +209,28 @@ export class VehicleController extends BaseController {
       return this.sendResponse(reply, vehicle);
     } catch (error) {
       console.error('❌ VehicleController: Erro ao atualizar veículo:', error);
+
+      // Tratamento específico para erros de placa duplicada
+      if (error instanceof Error) {
+        if (error.message.includes('já possui outro veículo')) {
+          console.log('🚨 VehicleController: Tentativa de usar placa duplicada:', error.message);
+          return reply.status(400).send({
+            message: error.message,
+            statusCode: 400,
+            errorType: 'DUPLICATE_LICENSE_PLATE'
+          });
+        }
+
+        if (error.message.includes('já está cadastrada no sistema')) {
+          console.log('🚨 VehicleController: Placa já existe no sistema:', error.message);
+          return reply.status(400).send({
+            message: error.message,
+            statusCode: 400,
+            errorType: 'LICENSE_PLATE_EXISTS'
+          });
+        }
+      }
+
       return this.sendError(reply, error as Error);
     }
   }
