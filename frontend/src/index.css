@@ -137,3 +137,37 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
 }
+
+/* Forçar dropdowns a abrir para baixo */
+select[name="brand"],
+select[name="model"],
+select[name="year"] {
+  direction: ltr;
+}
+
+select[name="brand"] option,
+select[name="model"] option,
+select[name="year"] option {
+  direction: ltr;
+}
+
+/* CSS específico para forçar dropdown para baixo */
+select[name="brand"]:focus,
+select[name="model"]:focus,
+select[name="year"]:focus {
+  transform-origin: top left;
+}
+
+/* Para navegadores WebKit (Chrome, Safari) */
+select[name="brand"]::-webkit-listbox,
+select[name="model"]::-webkit-listbox,
+select[name="year"]::-webkit-listbox {
+  direction: ltr;
+}
+
+/* Para Firefox */
+select[name="brand"]:-moz-focusring,
+select[name="model"]:-moz-focusring,
+select[name="year"]:-moz-focusring {
+  direction: ltr;
+}

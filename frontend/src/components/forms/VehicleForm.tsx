@@ -427,6 +427,9 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.brand ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
             }`}
+            style={{ 
+              direction: 'ltr'
+            }}
             disabled={isLoading || vehicleDataLoading}
           >
             <option value="">Selecione uma marca</option>
@@ -453,6 +456,9 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.model ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
             }`}
+            style={{ 
+              direction: 'ltr'
+            }}
             disabled={isLoading || vehicleDataLoading || !selectedBrandCode}
           >
             <option value="">Selecione um modelo</option>
@@ -478,6 +484,9 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.year ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
             }`}
+            style={{ 
+              direction: 'ltr'
+            }}
             disabled={isLoading || vehicleDataLoading || !selectedModelCode}
           >
             <option value="">Selecione um ano</option>

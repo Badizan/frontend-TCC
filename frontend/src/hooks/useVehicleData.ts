@@ -1,20 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
+import { getMockBrands, getMockModels, getMockYears, MockBrand, MockModel, MockYear } from '../services/mockData';
 
-interface Brand {
-    codigo: string;
-    nome: string;
-}
-
-interface Model {
-    codigo: string;
-    nome: string;
-}
-
-interface Year {
-    codigo: string;
-    nome: string;
-}
+// Usar as interfaces dos dados mockados
+type Brand = MockBrand;
+type Model = MockModel;
+type Year = MockYear;
 
 export const useVehicleData = () => {
     const [brands, setBrands] = useState<Brand[]>([]);
@@ -35,8 +26,17 @@ export const useVehicleData = () => {
 
             console.log(`✅ useVehicleData: ${brandsData.length} marcas carregadas`);
         } catch (err: any) {
-            console.error('❌ useVehicleData: Erro ao buscar marcas:', err);
-            setError(err.message || 'Erro ao carregar marcas');
+            console.error('❌ useVehicleData: Erro ao buscar marcas da API, usando dados mockados:', err);
+
+            try {
+                console.log('🔄 useVehicleData: Carregando dados mockados...');
+                const mockBrands = await getMockBrands();
+                setBrands(mockBrands);
+                console.log(`✅ useVehicleData: ${mockBrands.length} marcas mockadas carregadas`);
+            } catch (mockErr: any) {
+                console.error('❌ useVehicleData: Erro ao carregar dados mockados:', mockErr);
+                setError('Erro ao carregar marcas (API e dados mockados indisponíveis)');
+            }
         } finally {
             setLoading(false);
         }
@@ -60,10 +60,20 @@ export const useVehicleData = () => {
             console.log(`✅ useVehicleData: ${modelsData.length} modelos carregados`);
             return modelsData; // Retornar os dados para uso em cascata
         } catch (err: any) {
-            console.error('❌ useVehicleData: Erro ao buscar modelos:', err);
-            setError(err.message || 'Erro ao carregar modelos');
-            setModels([]);
-            return [];
+            console.error('❌ useVehicleData: Erro ao buscar modelos da API, usando dados mockados:', err);
+
+            try {
+                console.log(`🔄 useVehicleData: Carregando modelos mockados da marca ${brandCode}...`);
+                const mockModels = await getMockModels(brandCode);
+                setModels(mockModels);
+                console.log(`✅ useVehicleData: ${mockModels.length} modelos mockados carregados`);
+                return mockModels;
+            } catch (mockErr: any) {
+                console.error('❌ useVehicleData: Erro ao carregar modelos mockados:', mockErr);
+                setError('Erro ao carregar modelos (API e dados mockados indisponíveis)');
+                setModels([]);
+                return [];
+            }
         } finally {
             setLoading(false);
         }
@@ -86,9 +96,18 @@ export const useVehicleData = () => {
 
             console.log(`✅ useVehicleData: ${yearsData.length} anos carregados`);
         } catch (err: any) {
-            console.error('❌ useVehicleData: Erro ao buscar anos:', err);
-            setError(err.message || 'Erro ao carregar anos');
-            setYears([]);
+            console.error('❌ useVehicleData: Erro ao buscar anos da API, usando dados mockados:', err);
+
+            try {
+                console.log(`🔄 useVehicleData: Carregando anos mockados do modelo ${modelCode}...`);
+                const mockYears = await getMockYears(brandCode, modelCode);
+                setYears(mockYears);
+                console.log(`✅ useVehicleData: ${mockYears.length} anos mockados carregados`);
+            } catch (mockErr: any) {
+                console.error('❌ useVehicleData: Erro ao carregar anos mockados:', mockErr);
+                setError('Erro ao carregar anos (API e dados mockados indisponíveis)');
+                setYears([]);
+            }
         } finally {
             setLoading(false);
         }

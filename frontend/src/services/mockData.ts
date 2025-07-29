@@ -1,29 +1,20 @@
-import axios from 'axios';
-
-/**
- * ATENÇÃO: Este serviço foi modificado para usar dados mockados devido ao esgotamento da API da FIPE.
- * Os dados mockados incluem as principais marcas e modelos de veículos disponíveis no mercado brasileiro.
- * 
- * Para voltar a usar a API real da FIPE, remova os dados mockados e descomente as chamadas HTTP originais.
- */
-
-interface FipeBrand {
+// Dados mockados da FIPE para uso no frontend
+export interface MockBrand {
     codigo: string;
     nome: string;
 }
 
-interface FipeModel {
+export interface MockModel {
     codigo: string;
     nome: string;
 }
 
-interface FipeYear {
+export interface MockYear {
     codigo: string;
     nome: string;
 }
 
-// Dados mockados da FIPE
-const MOCK_BRANDS: FipeBrand[] = [
+export const MOCK_BRANDS: MockBrand[] = [
     { codigo: '1', nome: 'Acura' },
     { codigo: '2', nome: 'Agrale' },
     { codigo: '3', nome: 'Alfa Romeo' },
@@ -67,7 +58,7 @@ const MOCK_BRANDS: FipeBrand[] = [
     { codigo: '41', nome: 'Volvo' }
 ];
 
-const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
+export const MOCK_MODELS: { [brandCode: string]: MockModel[] } = {
     '10': [ // Chevrolet
         { codigo: '101', nome: 'Agile' },
         { codigo: '102', nome: 'Astra' },
@@ -83,42 +74,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '112', nome: 'S10' },
         { codigo: '113', nome: 'Spin' },
         { codigo: '114', nome: 'Tracker' },
-        { codigo: '115', nome: 'Vectra' },
-        { codigo: '116', nome: 'Corsa Wagon' },
-        { codigo: '117', nome: 'Corsa Sedan' },
-        { codigo: '118', nome: 'Corsa Pick-up' },
-        { codigo: '119', nome: 'Corsa Hatch' },
-        { codigo: '120', nome: 'Monza' },
-        { codigo: '121', nome: 'Omega' },
-        { codigo: '122', nome: 'Kadett' },
-        { codigo: '123', nome: 'Chevette' },
-        { codigo: '124', nome: 'Opala' },
-        { codigo: '125', nome: 'Caravan' },
-        { codigo: '126', nome: 'Veraneio' },
-        { codigo: '127', nome: 'Marajó' },
-        { codigo: '128', nome: 'Ipanema' },
-        { codigo: '129', nome: 'Meriva' },
-        { codigo: '130', nome: 'Zafira' },
-        { codigo: '131', nome: 'Captiva' },
-        { codigo: '132', nome: 'Equinox' },
-        { codigo: '133', nome: 'TrailBlazer' },
-        { codigo: '134', nome: 'Colorado' },
-        { codigo: '135', nome: 'Silverado' },
-        { codigo: '136', nome: 'Camaro' },
-        { codigo: '137', nome: 'Corvette' },
-        { codigo: '138', nome: 'Sonic' },
-        { codigo: '139', nome: 'Cruze Sport6' },
-        { codigo: '140', nome: 'Cruze Hatch' },
-        { codigo: '141', nome: 'Cruze Sedan' },
-        { codigo: '142', nome: 'Onix Plus' },
-        { codigo: '143', nome: 'Tracker LT' },
-        { codigo: '144', nome: 'Tracker Premier' },
-        { codigo: '145', nome: 'Spin Activ' },
-        { codigo: '146', nome: 'Spin LTZ' },
-        { codigo: '147', nome: 'S10 Cabine Dupla' },
-        { codigo: '148', nome: 'S10 Cabine Simples' },
-        { codigo: '149', nome: 'S10 Z71' },
-        { codigo: '150', nome: 'S10 Midnight' }
+        { codigo: '115', nome: 'Vectra' }
     ],
     '16': [ // Ford
         { codigo: '161', nome: 'EcoSport' },
@@ -130,48 +86,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '167', nome: 'Ka' },
         { codigo: '168', nome: 'Mondeo' },
         { codigo: '169', nome: 'Ranger' },
-        { codigo: '170', nome: 'Territory' },
-        { codigo: '171', nome: 'Bronco' },
-        { codigo: '172', nome: 'Explorer' },
-        { codigo: '173', nome: 'Expedition' },
-        { codigo: '174', nome: 'Mustang' },
-        { codigo: '175', nome: 'F-150' },
-        { codigo: '176', nome: 'F-250' },
-        { codigo: '177', nome: 'F-350' },
-        { codigo: '178', nome: 'Transit' },
-        { codigo: '179', nome: 'Connect' },
-        { codigo: '180', nome: 'Tourneo' },
-        { codigo: '181', nome: 'Galaxy' },
-        { codigo: '182', nome: 'S-Max' },
-        { codigo: '183', nome: 'C-Max' },
-        { codigo: '184', nome: 'B-Max' },
-        { codigo: '185', nome: 'Kuga' },
-        { codigo: '186', nome: 'Puma' },
-        { codigo: '187', nome: 'Courier' },
-        { codigo: '188', nome: 'Verona' },
-        { codigo: '189', nome: 'Del Rey' },
-        { codigo: '190', nome: 'Corcel' },
-        { codigo: '191', nome: 'Belina' },
-        { codigo: '192', nome: 'Maverick' },
-        { codigo: '193', nome: 'LTD' },
-        { codigo: '194', nome: 'Landau' },
-        { codigo: '195', nome: 'Versailles' },
-        { codigo: '196', nome: 'Royale' },
-        { codigo: '197', nome: 'Fiesta Sedan' },
-        { codigo: '198', nome: 'Fiesta Hatch' },
-        { codigo: '199', nome: 'Focus Sedan' },
-        { codigo: '200', nome: 'Focus Hatch' },
-        { codigo: '201', nome: 'Focus Wagon' },
-        { codigo: '202', nome: 'Ka Sedan' },
-        { codigo: '203', nome: 'Ka Hatch' },
-        { codigo: '204', nome: 'Ranger Cabine Dupla' },
-        { codigo: '205', nome: 'Ranger Cabine Simples' },
-        { codigo: '206', nome: 'Ranger XLT' },
-        { codigo: '207', nome: 'Ranger Wildtrak' },
-        { codigo: '208', nome: 'EcoSport Titanium' },
-        { codigo: '209', nome: 'EcoSport XLT' },
-        { codigo: '210', nome: 'Territory Titanium' },
-        { codigo: '211', nome: 'Territory SEL' }
+        { codigo: '170', nome: 'Territory' }
     ],
     '15': [ // Fiat
         { codigo: '151', nome: 'Argo' },
@@ -220,22 +135,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '417', nome: 'Touareg' },
         { codigo: '418', nome: 'Up!' },
         { codigo: '419', nome: 'Virtus' },
-        { codigo: '420', nome: 'Voyage' },
-        { codigo: '421', nome: 'Golf' },
-        { codigo: '422', nome: 'Scirocco' },
-        { codigo: '423', nome: 'New Beetle' },
-        { codigo: '424', nome: 'Phaeton' },
-        { codigo: '425', nome: 'Eos' },
-        { codigo: '426', nome: 'CC' },
-        { codigo: '427', nome: 'Sharan' },
-        { codigo: '428', nome: 'Touran' },
-        { codigo: '429', nome: 'Tiguan Allspace' },
-        { codigo: '430', nome: 'Atlas' },
-        { codigo: '431', nome: 'Taos' },
-        { codigo: '432', nome: 'ID.4' },
-        { codigo: '433', nome: 'ID.3' },
-        { codigo: '434', nome: 'Arteon' },
-        { codigo: '435', nome: 'T-Roc' }
+        { codigo: '420', nome: 'Voyage' }
     ],
     '39': [ // Toyota
         { codigo: '391', nome: 'Camry' },
@@ -244,45 +144,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '394', nome: 'Hilux' },
         { codigo: '395', nome: 'Prius' },
         { codigo: '396', nome: 'SW4' },
-        { codigo: '397', nome: 'Yaris' },
-        { codigo: '398', nome: 'RAV4' },
-        { codigo: '399', nome: 'Highlander' },
-        { codigo: '400', nome: '4Runner' },
-        { codigo: '401', nome: 'Tacoma' },
-        { codigo: '402', nome: 'Tundra' },
-        { codigo: '403', nome: 'Sequoia' },
-        { codigo: '404', nome: 'Land Cruiser' },
-        { codigo: '405', nome: 'Prado' },
-        { codigo: '406', nome: 'FJ Cruiser' },
-        { codigo: '407', nome: 'C-HR' },
-        { codigo: '408', nome: 'Venza' },
-        { codigo: '409', nome: 'Avalon' },
-        { codigo: '410', nome: 'Matrix' },
-        { codigo: '411', nome: 'Celica' },
-        { codigo: '412', nome: 'MR2' },
-        { codigo: '413', nome: 'Supra' },
-        { codigo: '414', nome: '86' },
-        { codigo: '415', nome: 'Sienna' },
-        { codigo: '416', nome: 'Previa' },
-        { codigo: '417', nome: 'Hiace' },
-        { codigo: '418', nome: 'Dyna' },
-        { codigo: '419', nome: 'Coaster' },
-        { codigo: '420', nome: 'Corolla Cross' },
-        { codigo: '421', nome: 'bZ4X' },
-        { codigo: '422', nome: 'Mirai' },
-        { codigo: '423', nome: 'Crown' },
-        { codigo: '424', nome: 'Auris' },
-        { codigo: '425', nome: 'iQ' },
-        { codigo: '426', nome: 'Aygo' },
-        { codigo: '427', nome: 'Yaris Cross' },
-        { codigo: '428', nome: 'Corolla Hatch' },
-        { codigo: '429', nome: 'Corolla Sedan' },
-        { codigo: '430', nome: 'Camry Hybrid' },
-        { codigo: '431', nome: 'Prius C' },
-        { codigo: '432', nome: 'Prius V' },
-        { codigo: '433', nome: 'Hilux Cabine Dupla' },
-        { codigo: '434', nome: 'Hilux Cabine Simples' },
-        { codigo: '435', nome: 'Hilux SW4' }
+        { codigo: '397', nome: 'Yaris' }
     ],
     '17': [ // Honda
         { codigo: '171', nome: 'City' },
@@ -290,93 +152,17 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '173', nome: 'CR-V' },
         { codigo: '174', nome: 'Fit' },
         { codigo: '175', nome: 'HR-V' },
-        { codigo: '176', nome: 'WR-V' },
-        { codigo: '177', nome: 'Accord' },
-        { codigo: '178', nome: 'Insight' },
-        { codigo: '179', nome: 'CR-Z' },
-        { codigo: '180', nome: 'Pilot' },
-        { codigo: '181', nome: 'Passport' },
-        { codigo: '182', nome: 'Ridgeline' },
-        { codigo: '183', nome: 'Odyssey' },
-        { codigo: '184', nome: 'Element' },
-        { codigo: '185', nome: 'S2000' },
-        { codigo: '186', nome: 'NSX' },
-        { codigo: '187', nome: 'Legend' },
-        { codigo: '188', nome: 'Vigor' },
-        { codigo: '189', nome: 'Integra' },
-        { codigo: '190', nome: 'Prelude' },
-        { codigo: '191', nome: 'CRX' },
-        { codigo: '192', nome: 'Del Sol' },
-        { codigo: '193', nome: 'Beat' },
-        { codigo: '194', nome: 'Today' },
-        { codigo: '195', nome: 'Acty' },
-        { codigo: '196', nome: 'Vamos' },
-        { codigo: '197', nome: 'Z' },
-        { codigo: '198', nome: 'N-One' },
-        { codigo: '199', nome: 'N-Box' },
-        { codigo: '200', nome: 'N-WGN' },
-        { codigo: '201', nome: 'N-Van' },
-        { codigo: '202', nome: 'e' },
-        { codigo: '203', nome: 'e:NS1' },
-        { codigo: '204', nome: 'e:Ny1' },
-        { codigo: '205', nome: 'Civic Type R' },
-        { codigo: '206', nome: 'Civic Si' },
-        { codigo: '207', nome: 'Civic Hatch' },
-        { codigo: '208', nome: 'Civic Sedan' },
-        { codigo: '209', nome: 'CR-V Hybrid' },
-        { codigo: '210', nome: 'HR-V e:HEV' },
-        { codigo: '211', nome: 'City Hatch' },
-        { codigo: '212', nome: 'City Sedan' },
-        { codigo: '213', nome: 'Fit Hybrid' },
-        { codigo: '214', nome: 'WR-V Turbo' }
+        { codigo: '176', nome: 'WR-V' }
     ],
     '7': [ // BMW
         { codigo: '71', nome: 'Série 1' },
-        { codigo: '72', nome: 'Série 2' },
-        { codigo: '73', nome: 'Série 3' },
-        { codigo: '74', nome: 'Série 4' },
-        { codigo: '75', nome: 'Série 5' },
-        { codigo: '76', nome: 'Série 6' },
-        { codigo: '77', nome: 'Série 7' },
-        { codigo: '78', nome: 'Série 8' },
-        { codigo: '79', nome: 'X1' },
-        { codigo: '80', nome: 'X2' },
-        { codigo: '81', nome: 'X3' },
-        { codigo: '82', nome: 'X4' },
-        { codigo: '83', nome: 'X5' },
-        { codigo: '84', nome: 'X6' },
-        { codigo: '85', nome: 'X7' },
-        { codigo: '86', nome: 'Z3' },
-        { codigo: '87', nome: 'Z4' },
-        { codigo: '88', nome: 'Z8' },
-        { codigo: '89', nome: 'i3' },
-        { codigo: '90', nome: 'i4' },
-        { codigo: '91', nome: 'i7' },
-        { codigo: '92', nome: 'iX' },
-        { codigo: '93', nome: 'iX3' },
-        { codigo: '94', nome: 'M1' },
-        { codigo: '95', nome: 'M2' },
-        { codigo: '96', nome: 'M3' },
-        { codigo: '97', nome: 'M4' },
-        { codigo: '98', nome: 'M5' },
-        { codigo: '99', nome: 'M6' },
-        { codigo: '100', nome: 'M8' },
-        { codigo: '101', nome: 'X1 M' },
-        { codigo: '102', nome: 'X3 M' },
-        { codigo: '103', nome: 'X4 M' },
-        { codigo: '104', nome: 'X5 M' },
-        { codigo: '105', nome: 'X6 M' },
-        { codigo: '106', nome: '1M' },
-        { codigo: '107', nome: 'M135i' },
-        { codigo: '108', nome: 'M235i' },
-        { codigo: '109', nome: 'M340i' },
-        { codigo: '110', nome: 'M440i' },
-        { codigo: '111', nome: 'M550i' },
-        { codigo: '112', nome: 'M760i' },
-        { codigo: '113', nome: 'Alpina B3' },
-        { codigo: '114', nome: 'Alpina B5' },
-        { codigo: '115', nome: 'Alpina B7' },
-        { codigo: '116', nome: 'Alpina XB7' }
+        { codigo: '72', nome: 'Série 3' },
+        { codigo: '73', nome: 'Série 5' },
+        { codigo: '74', nome: 'Série 7' },
+        { codigo: '75', nome: 'X1' },
+        { codigo: '76', nome: 'X3' },
+        { codigo: '77', nome: 'X5' },
+        { codigo: '78', nome: 'X6' }
     ],
     '28': [ // Mercedes-Benz
         { codigo: '281', nome: 'Classe A' },
@@ -387,55 +173,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '286', nome: 'GLA' },
         { codigo: '287', nome: 'GLC' },
         { codigo: '288', nome: 'GLE' },
-        { codigo: '289', nome: 'GLS' },
-        { codigo: '290', nome: 'Classe CLA' },
-        { codigo: '291', nome: 'Classe CLS' },
-        { codigo: '292', nome: 'Classe CL' },
-        { codigo: '293', nome: 'Classe SL' },
-        { codigo: '294', nome: 'Classe SLK' },
-        { codigo: '295', nome: 'Classe SLC' },
-        { codigo: '296', nome: 'Classe SLR' },
-        { codigo: '297', nome: 'Classe AMG GT' },
-        { codigo: '298', nome: 'Classe V' },
-        { codigo: '299', nome: 'Classe Vito' },
-        { codigo: '300', nome: 'Classe Sprinter' },
-        { codigo: '301', nome: 'Classe Citan' },
-        { codigo: '302', nome: 'Classe X' },
-        { codigo: '303', nome: 'Classe EQE' },
-        { codigo: '304', nome: 'Classe EQS' },
-        { codigo: '305', nome: 'Classe EQA' },
-        { codigo: '306', nome: 'Classe EQB' },
-        { codigo: '307', nome: 'Classe EQC' },
-        { codigo: '308', nome: 'Classe EQV' },
-        { codigo: '309', nome: 'Classe EQT' },
-        { codigo: '310', nome: 'Classe A AMG' },
-        { codigo: '311', nome: 'Classe C AMG' },
-        { codigo: '312', nome: 'Classe E AMG' },
-        { codigo: '313', nome: 'Classe S AMG' },
-        { codigo: '314', nome: 'GLA AMG' },
-        { codigo: '315', nome: 'GLC AMG' },
-        { codigo: '316', nome: 'GLE AMG' },
-        { codigo: '317', nome: 'GLS AMG' },
-        { codigo: '318', nome: 'Classe CLA AMG' },
-        { codigo: '319', nome: 'Classe CLS AMG' },
-        { codigo: '320', nome: 'Classe SL AMG' },
-        { codigo: '321', nome: 'Classe GT AMG' },
-        { codigo: '322', nome: 'Classe A Sedan' },
-        { codigo: '323', nome: 'Classe A Hatch' },
-        { codigo: '324', nome: 'Classe C Sedan' },
-        { codigo: '325', nome: 'Classe C Estate' },
-        { codigo: '326', nome: 'Classe E Sedan' },
-        { codigo: '327', nome: 'Classe E Estate' },
-        { codigo: '328', nome: 'Classe S Sedan' },
-        { codigo: '329', nome: 'Classe S Maybach' },
-        { codigo: '330', nome: 'Classe G' },
-        { codigo: '331', nome: 'Classe G AMG' },
-        { codigo: '332', nome: 'Classe GL' },
-        { codigo: '333', nome: 'Classe GL AMG' },
-        { codigo: '334', nome: 'Classe M' },
-        { codigo: '335', nome: 'Classe R' },
-        { codigo: '336', nome: 'Classe T' },
-        { codigo: '337', nome: 'Classe X-Class' }
+        { codigo: '289', nome: 'GLS' }
     ],
     '5': [ // Audi
         { codigo: '51', nome: 'A1' },
@@ -449,55 +187,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '59', nome: 'Q5' },
         { codigo: '510', nome: 'Q7' },
         { codigo: '511', nome: 'Q8' },
-        { codigo: '512', nome: 'TT' },
-        { codigo: '513', nome: 'TTS' },
-        { codigo: '514', nome: 'TT RS' },
-        { codigo: '515', nome: 'R8' },
-        { codigo: '516', nome: 'RS3' },
-        { codigo: '517', nome: 'RS4' },
-        { codigo: '518', nome: 'RS5' },
-        { codigo: '519', nome: 'RS6' },
-        { codigo: '520', nome: 'RS7' },
-        { codigo: '521', nome: 'RS Q3' },
-        { codigo: '522', nome: 'RS Q5' },
-        { codigo: '523', nome: 'RS Q8' },
-        { codigo: '524', nome: 'S1' },
-        { codigo: '525', nome: 'S3' },
-        { codigo: '526', nome: 'S4' },
-        { codigo: '527', nome: 'S5' },
-        { codigo: '528', nome: 'S6' },
-        { codigo: '529', nome: 'S7' },
-        { codigo: '530', nome: 'S8' },
-        { codigo: '531', nome: 'SQ5' },
-        { codigo: '532', nome: 'SQ7' },
-        { codigo: '533', nome: 'SQ8' },
-        { codigo: '534', nome: 'Q2' },
-        { codigo: '535', nome: 'Q4 e-tron' },
-        { codigo: '536', nome: 'Q6' },
-        { codigo: '537', nome: 'e-tron' },
-        { codigo: '538', nome: 'e-tron GT' },
-        { codigo: '539', nome: 'e-tron Sportback' },
-        { codigo: '540', nome: 'A1 Sportback' },
-        { codigo: '541', nome: 'A3 Sportback' },
-        { codigo: '542', nome: 'A3 Sedan' },
-        { codigo: '543', nome: 'A4 Avant' },
-        { codigo: '544', nome: 'A4 Allroad' },
-        { codigo: '545', nome: 'A5 Sportback' },
-        { codigo: '546', nome: 'A5 Cabriolet' },
-        { codigo: '547', nome: 'A6 Avant' },
-        { codigo: '548', nome: 'A6 Allroad' },
-        { codigo: '549', nome: 'A7 Sportback' },
-        { codigo: '550', nome: 'Q3 Sportback' },
-        { codigo: '551', nome: 'Q5 Sportback' },
-        { codigo: '552', nome: 'Q7 e-tron' },
-        { codigo: '553', nome: 'Q8 e-tron' },
-        { codigo: '554', nome: 'TT Roadster' },
-        { codigo: '555', nome: 'R8 Spyder' },
-        { codigo: '556', nome: 'RS e-tron GT' },
-        { codigo: '557', nome: 'A1 Citycarver' },
-        { codigo: '558', nome: 'Q3 e-tron' },
-        { codigo: '559', nome: 'Q5 e-tron' },
-        { codigo: '560', nome: 'A3 e-tron' }
+        { codigo: '512', nome: 'TT' }
     ],
     '18': [ // Hyundai
         { codigo: '181', nome: 'Accent' },
@@ -510,46 +200,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '188', nome: 'Santa Fe' },
         { codigo: '189', nome: 'Sonata' },
         { codigo: '190', nome: 'Tucson' },
-        { codigo: '191', nome: 'Veloster' },
-        { codigo: '192', nome: 'i10' },
-        { codigo: '193', nome: 'i20' },
-        { codigo: '194', nome: 'i40' },
-        { codigo: '195', nome: 'Genesis' },
-        { codigo: '196', nome: 'Equus' },
-        { codigo: '197', nome: 'Veracruz' },
-        { codigo: '198', nome: 'Terracan' },
-        { codigo: '199', nome: 'Galloper' },
-        { codigo: '200', nome: 'Porter' },
-        { codigo: '201', nome: 'H100' },
-        { codigo: '202', nome: 'Starex' },
-        { codigo: '203', nome: 'Grand Starex' },
-        { codigo: '204', nome: 'H350' },
-        { codigo: '205', nome: 'Xcient' },
-        { codigo: '206', nome: 'Palisade' },
-        { codigo: '207', nome: 'Venue' },
-        { codigo: '208', nome: 'Kona' },
-        { codigo: '209', nome: 'Nexo' },
-        { codigo: '210', nome: 'IONIQ' },
-        { codigo: '211', nome: 'IONIQ 5' },
-        { codigo: '212', nome: 'IONIQ 6' },
-        { codigo: '213', nome: 'Staria' },
-        { codigo: '214', nome: 'Bayon' },
-        { codigo: '215', nome: 'Casper' },
-        { codigo: '216', nome: 'Stargazer' },
-        { codigo: '217', nome: 'Creta N Line' },
-        { codigo: '218', nome: 'i20 N' },
-        { codigo: '219', nome: 'i30 N' },
-        { codigo: '220', nome: 'Veloster N' },
-        { codigo: '221', nome: 'Kona N' },
-        { codigo: '222', nome: 'Elantra N' },
-        { codigo: '223', nome: 'Tucson N Line' },
-        { codigo: '224', nome: 'Santa Fe N Line' },
-        { codigo: '225', nome: 'HB20X' },
-        { codigo: '226', nome: 'HB20R' },
-        { codigo: '227', nome: 'HB20S Premium' },
-        { codigo: '228', nome: 'Creta Limited' },
-        { codigo: '229', nome: 'Tucson Limited' },
-        { codigo: '230', nome: 'Santa Fe Limited' }
+        { codigo: '191', nome: 'Veloster' }
     ],
     '22': [ // Kia
         { codigo: '221', nome: 'Besta' },
@@ -562,71 +213,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
         { codigo: '228', nome: 'Rio' },
         { codigo: '229', nome: 'Sorento' },
         { codigo: '230', nome: 'Soul' },
-        { codigo: '231', nome: 'Sportage' },
-        { codigo: '232', nome: 'Pride' },
-        { codigo: '233', nome: 'Avella' },
-        { codigo: '234', nome: 'Shuma' },
-        { codigo: '235', nome: 'Clarus' },
-        { codigo: '236', nome: 'Credos' },
-        { codigo: '237', nome: 'Magentis' },
-        { codigo: '238', nome: 'Lotze' },
-        { codigo: '239', nome: 'Opirus' },
-        { codigo: '240', nome: 'Amanti' },
-        { codigo: '241', nome: 'Borrego' },
-        { codigo: '242', nome: 'Mohave' },
-        { codigo: '243', nome: 'Ceed' },
-        { codigo: '244', nome: 'Proceed' },
-        { codigo: '245', nome: 'Venga' },
-        { codigo: '246', nome: 'Niro' },
-        { codigo: '247', nome: 'Stinger' },
-        { codigo: '248', nome: 'Stonic' },
-        { codigo: '249', nome: 'XCeed' },
-        { codigo: '250', nome: 'ProCeed' },
-        { codigo: '251', nome: 'EV6' },
-        { codigo: '252', nome: 'Niro EV' },
-        { codigo: '253', nome: 'Soul EV' },
-        { codigo: '254', nome: 'e-Niro' },
-        { codigo: '255', nome: 'Telluride' },
-        { codigo: '256', nome: 'Seltos' },
-        { codigo: '257', nome: 'Sonet' },
-        { codigo: '258', nome: 'Carnival' },
-        { codigo: '259', nome: 'Sedona' },
-        { codigo: '260', nome: 'Grand Carnival' },
-        { codigo: '261', nome: 'Bongo' },
-        { codigo: '262', nome: 'K2700' },
-        { codigo: '263', nome: 'K3000' },
-        { codigo: '264', nome: 'K4000' },
-        { codigo: '265', nome: 'K5000' },
-        { codigo: '266', nome: 'Towner' },
-        { codigo: '267', nome: 'Ray' },
-        { codigo: '268', nome: 'K3' },
-        { codigo: '269', nome: 'K5' },
-        { codigo: '270', nome: 'K8' },
-        { codigo: '271', nome: 'K9' },
-        { codigo: '272', nome: 'Cadenza' },
-        { codigo: '273', nome: 'K900' },
-        { codigo: '274', nome: 'Quoris' },
-        { codigo: '275', nome: 'Forte' },
-        { codigo: '276', nome: 'Spectra' },
-        { codigo: '277', nome: 'Sephia' },
-        { codigo: '278', nome: 'Mentor' },
-        { codigo: '279', nome: 'Concord' },
-        { codigo: '280', nome: 'Capital' },
-        { codigo: '281', nome: 'Potentia' },
-        { codigo: '282', nome: 'Enterprise' },
-        { codigo: '283', nome: 'Pregio' },
-        { codigo: '284', nome: 'Combi' },
-        { codigo: '285', nome: 'Granbird' },
-        { codigo: '286', nome: 'Rio Sedan' },
-        { codigo: '287', nome: 'Rio Hatch' },
-        { codigo: '288', nome: 'Cerato Sedan' },
-        { codigo: '289', nome: 'Cerato Hatch' },
-        { codigo: '290', nome: 'Sportage GT Line' },
-        { codigo: '291', nome: 'Sorento GT Line' },
-        { codigo: '292', nome: 'Stinger GT' },
-        { codigo: '293', nome: 'Niro Hybrid' },
-        { codigo: '294', nome: 'Niro PHEV' },
-        { codigo: '295', nome: 'Soul GT Line' }
+        { codigo: '231', nome: 'Sportage' }
     ],
     '31': [ // Nissan
         { codigo: '311', nome: '350Z' },
@@ -1330,7 +917,7 @@ const MOCK_MODELS: { [brandCode: string]: FipeModel[] } = {
     ]
 };
 
-const MOCK_YEARS: FipeYear[] = [
+export const MOCK_YEARS: MockYear[] = [
     { codigo: '2024', nome: '2024' },
     { codigo: '2023', nome: '2023' },
     { codigo: '2022', nome: '2022' },
@@ -1358,152 +945,23 @@ const MOCK_YEARS: FipeYear[] = [
     { codigo: '2000', nome: '2000' }
 ];
 
-export class FipeService {
-    private baseUrl = 'https://parallelum.com.br/fipe/api/v1';
+// Funções helper para simular delay de rede
+export const simulateNetworkDelay = (ms: number = 100) => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+};
 
-    /**
-     * Busca todas as marcas disponíveis na tabela FIPE (MOCKADO)
-     */
-    async getBrands(): Promise<FipeBrand[]> {
-        try {
-            console.log('🔍 FipeService: Retornando marcas mockadas...');
+// Funções mockadas para uso como fallback
+export const getMockBrands = async (): Promise<MockBrand[]> => {
+    await simulateNetworkDelay(100);
+    return MOCK_BRANDS;
+};
 
-            // Simular delay de rede
-            await new Promise(resolve => setTimeout(resolve, 100));
+export const getMockModels = async (brandCode: string): Promise<MockModel[]> => {
+    await simulateNetworkDelay(150);
+    return MOCK_MODELS[brandCode] || [];
+};
 
-            console.log(`✅ FipeService: ${MOCK_BRANDS.length} marcas mockadas retornadas`);
-            return MOCK_BRANDS;
-        } catch (error) {
-            console.error('❌ FipeService: Erro ao buscar marcas mockadas:', error);
-            throw new Error('Erro ao buscar marcas de veículos');
-        }
-    }
-
-    /**
-     * Busca modelos de uma marca específica (MOCKADO)
-     */
-    async getModels(brandCode: string): Promise<FipeModel[]> {
-        try {
-            console.log(`🔍 FipeService: Retornando modelos mockados da marca ${brandCode}...`);
-
-            // Simular delay de rede
-            await new Promise(resolve => setTimeout(resolve, 150));
-
-            const models = MOCK_MODELS[brandCode] || [];
-
-            console.log(`✅ FipeService: ${models.length} modelos mockados encontrados para marca ${brandCode}`);
-            return models;
-        } catch (error) {
-            console.error('❌ FipeService: Erro ao buscar modelos mockados:', error);
-            throw new Error('Erro ao buscar modelos de veículos');
-        }
-    }
-
-    /**
-     * Busca anos de um modelo específico (MOCKADO)
-     */
-    async getYears(brandCode: string, modelCode: string): Promise<FipeYear[]> {
-        try {
-            console.log(`🔍 FipeService: Retornando anos mockados do modelo ${modelCode} da marca ${brandCode}...`);
-
-            // Simular delay de rede
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            console.log(`✅ FipeService: ${MOCK_YEARS.length} anos mockados encontrados para modelo ${modelCode}`);
-            return MOCK_YEARS;
-        } catch (error) {
-            console.error('❌ FipeService: Erro ao buscar anos mockados:', error);
-            throw new Error('Erro ao buscar anos do modelo');
-        }
-    }
-
-    /**
-     * Busca informações completas de um veículo (preço, etc.) - MOCKADO
-     */
-    async getVehicleInfo(brandCode: string, modelCode: string, yearCode: string) {
-        try {
-            console.log(`🔍 FipeService: Retornando informações mockadas do veículo...`);
-
-            // Simular delay de rede
-            await new Promise(resolve => setTimeout(resolve, 200));
-
-            // Gerar preço mockado baseado no ano
-            const basePrice = 50000;
-            const yearFactor = parseInt(yearCode) - 2000;
-            const mockPrice = basePrice + (yearFactor * 2000);
-
-            const mockInfo = {
-                Valor: `R$ ${mockPrice.toLocaleString('pt-BR')}`,
-                Marca: MOCK_BRANDS.find(b => b.codigo === brandCode)?.nome || 'Marca não encontrada',
-                Modelo: MOCK_MODELS[brandCode]?.find(m => m.codigo === modelCode)?.nome || 'Modelo não encontrado',
-                AnoModelo: parseInt(yearCode),
-                Combustivel: 'Flex',
-                CodigoFipe: `${brandCode}${modelCode}${yearCode}`,
-                MesReferencia: 'Janeiro/2024',
-                TipoVeiculo: 1,
-                SiglaCombustivel: 'F'
-            };
-
-            console.log('✅ FipeService: Informações mockadas do veículo obtidas com sucesso');
-            return mockInfo;
-        } catch (error) {
-            console.error('❌ FipeService: Erro ao buscar informações mockadas do veículo:', error);
-            throw new Error('Erro ao buscar informações do veículo');
-        }
-    }
-
-    /**
-     * Busca marcas com cache para melhor performance (MOCKADO)
-     */
-    private brandsCache: { data: FipeBrand[]; timestamp: number } | null = null;
-    private readonly CACHE_DURATION = 24 * 60 * 60 * 1000;
-
-    async getBrandsWithCache(): Promise<FipeBrand[]> {
-        const now = Date.now();
-
-        // Verificar se o cache ainda é válido
-        if (this.brandsCache && (now - this.brandsCache.timestamp) < this.CACHE_DURATION) {
-            console.log('📦 FipeService: Retornando marcas mockadas do cache');
-            return this.brandsCache.data;
-        }
-
-        // Buscar dados frescos
-        const brands = await this.getBrands();
-
-        // Atualizar cache
-        this.brandsCache = {
-            data: brands,
-            timestamp: now
-        };
-
-        return brands;
-    }
-
-    /**
-     * Cache para modelos por marca (MOCKADO)
-     */
-    private modelsCache: Map<string, { data: FipeModel[]; timestamp: number }> = new Map();
-
-    async getModelsWithCache(brandCode: string): Promise<FipeModel[]> {
-        const now = Date.now();
-        const cacheKey = brandCode;
-
-        // Verificar se o cache ainda é válido
-        const cached = this.modelsCache.get(cacheKey);
-        if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
-            console.log(`📦 FipeService: Retornando modelos mockados da marca ${brandCode} do cache`);
-            return cached.data;
-        }
-
-        // Buscar dados frescos
-        const models = await this.getModels(brandCode);
-
-        // Atualizar cache
-        this.modelsCache.set(cacheKey, {
-            data: models,
-            timestamp: now
-        });
-
-        return models;
-    }
-} 
+export const getMockYears = async (brandCode: string, modelCode: string): Promise<MockYear[]> => {
+    await simulateNetworkDelay(100);
+    return MOCK_YEARS;
+}; 
