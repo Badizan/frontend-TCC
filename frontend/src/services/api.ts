@@ -1,13 +1,96 @@
-import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosResponse, AxiosRequestConfig } from 'axios';
 import { Vehicle, MaintenanceService, MaintenanceReminder, Expense } from '../types';
 
 // Configurações da API
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 segundo
+const CIRCUIT_BREAKER_THRESHOLD = 5; // falhas consecutivas
+const CIRCUIT_BREAKER_TIMEOUT = 30000; // 30 segundos
+
+// Tipos de erro customizados
+export class ApiError extends Error {
+    constructor(
+        message: string,
+        public statusCode?: number,
+        public errorCode?: string,
+        public details?: any
+    ) {
+        super(message);
+        this.name = 'ApiError';
+    }
+}
+
+export class NetworkError extends ApiError {
+    constructor(message: string = 'Erro de conexão com o servidor') {
+        super(message, 0, 'NETWORK_ERROR');
+        this.name = 'NetworkError';
+    }
+}
+
+export class ValidationError extends ApiError {
+    constructor(message: string, details?: any) {
+        super(message, 400, 'VALIDATION_ERROR', details);
+        this.name = 'ValidationError';
+    }
+}
+
+export class AuthenticationError extends ApiError {
+    constructor(message: string = 'Não autorizado') {
+        super(message, 401, 'AUTHENTICATION_ERROR');
+        this.name = 'AuthenticationError';
+    }
+}
+
+export class NotFoundError extends ApiError {
+    constructor(message: string = 'Recurso não encontrado') {
+        super(message, 404, 'NOT_FOUND');
+        this.name = 'NotFoundError';
+    }
+}
+
+// Circuit Breaker simples
+class CircuitBreaker {
+    private failures = 0;
+    private lastFailureTime?: number;
+    private state: 'closed' | 'open' | 'half-open' = 'closed';
+
+    isOpen(): boolean {
+        if (this.state === 'open') {
+            const now = Date.now();
+            if (this.lastFailureTime && now - this.lastFailureTime > CIRCUIT_BREAKER_TIMEOUT) {
+                this.state = 'half-open';
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    recordSuccess(): void {
+        this.failures = 0;
+        this.state = 'closed';
+    }
+
+    recordFailure(): void {
+        this.failures++;
+        this.lastFailureTime = Date.now();
+        if (this.failures >= CIRCUIT_BREAKER_THRESHOLD) {
+            this.state = 'open';
+            console.error('🔴 Circuit breaker ABERTO - muitas falhas consecutivas');
+        }
+    }
+
+    getState(): string {
+        return this.state;
+    }
+}
 
 export class ApiService {
     private api: AxiosInstance;
     private preventRedirect = false;
     private currentUserId: string | null = null;
+    private circuitBreaker = new CircuitBreaker();
 
     constructor() {
         this.api = axios.create({
@@ -38,7 +121,8 @@ export class ApiService {
 
                 console.log('🌐 API Request:', config.method?.toUpperCase(), config.url, {
                     hasToken: !!token,
-                    userId: this.currentUserId
+                    userId: this.currentUserId,
+                    circuitBreakerState: this.circuitBreaker.getState()
                 });
                 return config;
             },
@@ -52,19 +136,101 @@ export class ApiService {
         this.api.interceptors.response.use(
             (response: AxiosResponse) => {
                 console.log('✅ API Response:', response.status, response.config.url);
+                this.circuitBreaker.recordSuccess();
                 return response;
             },
-            (error: AxiosError) => {
+            async (error: AxiosError) => {
                 console.error('❌ API Error:', error.response?.status, error.config?.url, error.response?.data);
 
-                if (error.response?.status === 401 && !this.preventRedirect) {
+                // Registrar falha no circuit breaker
+                if (!error.response || error.response.status >= 500) {
+                    this.circuitBreaker.recordFailure();
+                }
+
+                // Tratar erro específico
+                const apiError = this.handleAxiosError(error);
+
+                // Se for erro de autenticação e não estiver prevenindo redirect
+                if (apiError instanceof AuthenticationError && !this.preventRedirect) {
                     console.log('🚪 Token inválido, limpando autenticação');
                     this.clearAllCache();
                 }
 
-                return Promise.reject(error);
+                return Promise.reject(apiError);
             }
         );
+    }
+
+    // Converter erro do Axios em erro customizado
+    private handleAxiosError(error: AxiosError): ApiError {
+        if (!error.response) {
+            // Erro de rede
+            if (error.code === 'ECONNABORTED') {
+                return new NetworkError('Tempo limite da requisição excedido');
+            }
+            return new NetworkError();
+        }
+
+        const status = error.response.status;
+        const data = error.response.data as any;
+        const message = data?.message || error.message;
+
+        switch (status) {
+            case 400:
+                return new ValidationError(message, data?.details);
+            case 401:
+                return new AuthenticationError(message);
+            case 404:
+                return new NotFoundError(message);
+            case 409:
+                return new ApiError(message, 409, 'CONFLICT');
+            case 422:
+                return new ValidationError(message, data?.errors);
+            case 429:
+                return new ApiError('Muitas requisições. Tente novamente mais tarde.', 429, 'RATE_LIMIT');
+            case 500:
+                return new ApiError('Erro interno do servidor', 500, 'INTERNAL_ERROR');
+            case 503:
+                return new ApiError('Serviço temporariamente indisponível', 503, 'SERVICE_UNAVAILABLE');
+            default:
+                return new ApiError(message, status);
+        }
+    }
+
+    // Função para fazer requisições com retry
+    private async makeRequestWithRetry<T>(
+        config: AxiosRequestConfig,
+        retries = MAX_RETRIES
+    ): Promise<AxiosResponse<T>> {
+        // Verificar circuit breaker
+        if (this.circuitBreaker.isOpen()) {
+            throw new ApiError(
+                'Serviço temporariamente indisponível. Tente novamente em alguns segundos.',
+                503,
+                'CIRCUIT_BREAKER_OPEN'
+            );
+        }
+
+        try {
+            return await this.api.request<T>(config);
+        } catch (error) {
+            // Se for ApiError, verificar se deve fazer retry
+            if (error instanceof ApiError) {
+                const shouldRetry = 
+                    retries > 0 && 
+                    (error.statusCode === 0 || // Erro de rede
+                     error.statusCode === 503 || // Serviço indisponível
+                     error.statusCode === 429 || // Rate limit
+                     (error.statusCode && error.statusCode >= 500)); // Erros do servidor
+
+                if (shouldRetry) {
+                    console.log(`⏳ Tentando novamente em ${RETRY_DELAY}ms... (${MAX_RETRIES - retries + 1}/${MAX_RETRIES})`);
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (MAX_RETRIES - retries + 1)));
+                    return this.makeRequestWithRetry<T>(config, retries - 1);
+                }
+            }
+            throw error;
+        }
     }
 
     // Métodos de token
@@ -156,11 +322,16 @@ export class ApiService {
             // Limpar cache antes do login
             this.clearAllCache();
 
-            const response = await this.api.post('/auth/login', { email, password });
+            const response = await this.makeRequestWithRetry({
+                method: 'POST',
+                url: '/auth/login',
+                data: { email, password }
+            });
+            
             const { token, user } = response.data;
 
             if (!user || !user.id) {
-                throw new Error('Resposta de login inválida: dados do usuário não encontrados');
+                throw new ValidationError('Resposta de login inválida: dados do usuário não encontrados');
             }
 
             this.setToken(token);
@@ -174,14 +345,6 @@ export class ApiService {
             // Limpar tudo em caso de erro
             this.clearAllCache();
 
-            // Extrair mensagem específica do backend
-            if (error.response?.data?.message) {
-                const backendMessage = error.response.data.message;
-                console.error('❌ API: Mensagem do backend:', backendMessage);
-                throw new Error(backendMessage);
-            }
-
-            // Fallback para outros tipos de erro
             throw error;
         } finally {
             this.setPreventRedirect(false);
@@ -384,315 +547,4 @@ export class ApiService {
         try {
             console.log('🏷️ API: Buscando marcas de veículos...');
             const response = await this.api.get('/vehicles/brands');
-            console.log(`✅ API: ${response.data.length} marcas carregadas`);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao buscar marcas:', error);
-            throw error;
-        }
-    }
-
-    async getModels(brandCode: string): Promise<Array<{ codigo: string; nome: string }>> {
-        try {
-            console.log(`🏷️ API: Buscando modelos da marca ${brandCode}...`);
-            const response = await this.api.get(`/vehicles/brands/${brandCode}/models`);
-            console.log(`✅ API: ${response.data.length} modelos carregados`);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao buscar modelos:', error);
-            throw error;
-        }
-    }
-
-    async getYears(brandCode: string, modelCode: string): Promise<Array<{ codigo: string; nome: string }>> {
-        try {
-            console.log(`🏷️ API: Buscando anos do modelo ${modelCode}...`);
-            const response = await this.api.get(`/vehicles/brands/${brandCode}/models/${modelCode}/years`);
-            console.log(`✅ API: ${response.data.length} anos carregados`);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao buscar anos:', error);
-            throw error;
-        }
-    }
-
-    // MILEAGE REMINDERS API
-    async createMileageReminder(data: {
-        vehicleId: string;
-        description: string;
-        dueMileage: number;
-    }): Promise<any> {
-        try {
-            console.log('📝 API: Criando lembrete de quilometragem...');
-            const response = await this.api.post('/mileage-reminders', data);
-            console.log('✅ API: Lembrete de quilometragem criado');
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao criar lembrete de quilometragem:', error);
-            throw error;
-        }
-    }
-
-    async updateVehicleMileage(vehicleId: string, newMileage: number): Promise<any> {
-        try {
-            console.log(`🔄 API: Atualizando quilometragem do veículo ${vehicleId} para ${newMileage}km`);
-            const response = await this.api.put('/vehicles/mileage', {
-                vehicleId,
-                newMileage
-            });
-            console.log('✅ API: Quilometragem atualizada');
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao atualizar quilometragem:', error);
-            throw error;
-        }
-    }
-
-    async getMileageReminders(vehicleId: string): Promise<any[]> {
-        try {
-            console.log(`🔍 API: Buscando lembretes de quilometragem para veículo ${vehicleId}`);
-            const response = await this.api.get(`/vehicles/${vehicleId}/mileage-reminders`);
-            console.log(`✅ API: ${response.data.length} lembretes encontrados`);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao buscar lembretes de quilometragem:', error);
-            throw error;
-        }
-    }
-
-    async calculateNextMaintenance(vehicleId: string, intervalKm: number): Promise<any> {
-        try {
-            console.log(`🧮 API: Calculando próxima manutenção para veículo ${vehicleId} com intervalo de ${intervalKm}km`);
-            const response = await this.api.get(`/vehicles/${vehicleId}/next-maintenance?intervalKm=${intervalKm}`);
-            console.log('✅ API: Próxima manutenção calculada');
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao calcular próxima manutenção:', error);
-            throw error;
-        }
-    }
-
-    // MANUTENÇÕES
-    async getMaintenances(filters?: { vehicleId?: string }): Promise<MaintenanceService[]> {
-        try {
-            const params = new URLSearchParams();
-            if (filters?.vehicleId) {
-                params.append('vehicleId', filters.vehicleId);
-            }
-
-            console.log('🔧 API: Buscando manutenções...');
-            const response = await this.api.get(`/maintenance?${params.toString()}`, {
-                headers: {
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0'
-                }
-            });
-
-            console.log(`✅ API: ${response.data.length} manutenções carregadas`);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao buscar manutenções:', error);
-            throw error;
-        }
-    }
-
-    async createMaintenance(maintenance: Omit<MaintenanceService, 'id' | 'createdAt' | 'updatedAt'>): Promise<MaintenanceService> {
-        try {
-            console.log('🔧 API: Criando manutenção:', maintenance);
-            const response = await this.api.post('/maintenance', maintenance);
-            console.log('✅ API: Manutenção criada:', response.data.description);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao criar manutenção:', error);
-            throw error;
-        }
-    }
-
-    async updateMaintenance(id: string, data: Partial<MaintenanceService>): Promise<MaintenanceService> {
-        try {
-            console.log('🔧 API: Atualizando manutenção:', id);
-            const response = await this.api.put(`/maintenance/${id}`, data);
-            console.log('✅ API: Manutenção atualizada');
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao atualizar manutenção:', error);
-            throw error;
-        }
-    }
-
-    async deleteMaintenance(id: string): Promise<void> {
-        try {
-            console.log('🔧 API: Deletando manutenção:', id);
-            await this.api.delete(`/maintenance/${id}`);
-            console.log('✅ API: Manutenção deletada');
-        } catch (error: any) {
-            console.error('❌ API: Erro ao deletar manutenção:', error);
-            throw error;
-        }
-    }
-
-    // LEMBRETES
-    async getReminders(filters?: { vehicleId?: string }): Promise<MaintenanceReminder[]> {
-        try {
-            const params = new URLSearchParams();
-            if (filters?.vehicleId) {
-                params.append('vehicleId', filters.vehicleId);
-            }
-
-            console.log('⏰ API: Buscando lembretes...');
-            const response = await this.api.get(`/reminders?${params.toString()}`, {
-                headers: {
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0'
-                }
-            });
-
-            console.log(`✅ API: ${response.data.length} lembretes carregados`);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao buscar lembretes:', error);
-            throw error;
-        }
-    }
-
-    async createReminder(reminder: Omit<MaintenanceReminder, 'id' | 'createdAt' | 'updatedAt'>): Promise<MaintenanceReminder> {
-        try {
-            console.log('⏰ API: Criando lembrete:', reminder);
-            const response = await this.api.post('/reminders', reminder);
-            console.log('✅ API: Lembrete criado:', response.data.description);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao criar lembrete:', error);
-            throw error;
-        }
-    }
-
-    async completeReminder(id: string): Promise<void> {
-        try {
-            console.log('⏰ API: Completando lembrete:', id);
-            await this.api.patch(`/reminders/${id}/complete`);
-            console.log('✅ API: Lembrete completado');
-        } catch (error: any) {
-            console.error('❌ API: Erro ao completar lembrete:', error);
-            throw error;
-        }
-    }
-
-    async deleteReminder(id: string): Promise<void> {
-        try {
-            console.log('⏰ API: Deletando lembrete:', id);
-            await this.api.delete(`/reminders/${id}`);
-            console.log('✅ API: Lembrete deletado');
-        } catch (error: any) {
-            console.error('❌ API: Erro ao deletar lembrete:', error);
-            throw error;
-        }
-    }
-
-    // GASTOS
-    async getExpenses(filters?: { vehicleId?: string }): Promise<Expense[]> {
-        try {
-            const params = new URLSearchParams();
-            if (filters?.vehicleId) {
-                params.append('vehicleId', filters.vehicleId);
-            }
-
-            console.log('💰 API: Buscando despesas...');
-            const response = await this.api.get(`/expenses?${params.toString()}`, {
-                headers: {
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0'
-                }
-            });
-
-            console.log(`✅ API: ${response.data.length} despesas carregadas`);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao buscar despesas:', error);
-            throw error;
-        }
-    }
-
-    async createExpense(expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>): Promise<Expense> {
-        try {
-            console.log('💰 API: Criando despesa:', expense);
-            const response = await this.api.post('/expenses', expense);
-            console.log('✅ API: Despesa criada:', response.data.description);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao criar despesa:', error);
-            throw error;
-        }
-    }
-
-    async updateExpense(id: string, data: Partial<Expense>): Promise<Expense> {
-        try {
-            console.log('💰 API: Atualizando despesa:', id);
-            const response = await this.api.put(`/expenses/${id}`, data);
-            console.log('✅ API: Despesa atualizada');
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao atualizar despesa:', error);
-            throw error;
-        }
-    }
-
-    async deleteExpense(id: string): Promise<void> {
-        try {
-            console.log('💰 API: Deletando despesa:', id);
-            await this.api.delete(`/expenses/${id}`);
-            console.log('✅ API: Despesa deletada');
-        } catch (error: any) {
-            console.error('❌ API: Erro ao deletar despesa:', error);
-            throw error;
-        }
-    }
-
-    // NOTIFICAÇÕES
-    async getNotifications(): Promise<any[]> {
-        try {
-            console.log('🔔 API: Buscando notificações...');
-            const response = await this.api.get('/notifications');
-            console.log(`✅ API: ${response.data.length || response.data.notifications?.length || 0} notificações carregadas`);
-            return response.data;
-        } catch (error: any) {
-            console.error('❌ API: Erro ao buscar notificações:', error);
-            throw error;
-        }
-    }
-
-    async markNotificationAsRead(id: string): Promise<void> {
-        try {
-            console.log('🔔 API: Marcando notificação como lida:', id);
-            await this.api.patch(`/notifications/${id}/read`);
-            console.log('✅ API: Notificação marcada como lida');
-        } catch (error: any) {
-            console.error('❌ API: Erro ao marcar notificação como lida:', error);
-            throw error;
-        }
-    }
-
-    async markAllNotificationsAsRead(): Promise<void> {
-        try {
-            console.log('🔔 API: Marcando todas notificações como lidas');
-            await this.api.patch('/notifications/read-all');
-            console.log('✅ API: Todas notificações marcadas como lidas');
-        } catch (error: any) {
-            console.error('❌ API: Erro ao marcar todas notificações como lidas:', error);
-            throw error;
-        }
-    }
-
-    // Getter para acessar a instância do axios
-    get apiInstance() {
-        return this.api;
-    }
-}
-
-// Create and export a single instance
-const apiService = new ApiService();
-export const api = apiService;
-export default apiService;
+            console.log(`

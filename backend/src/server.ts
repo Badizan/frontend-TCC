@@ -4,11 +4,92 @@ import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import { routes } from './routes'
 import { CronService } from './services/cronService'
+import { databaseService } from './config/database'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-const app = fastify()
+const app = fastify({
+  logger: {
+    level: process.env.LOG_LEVEL || 'info',
+    prettyPrint: process.env.NODE_ENV === 'development'
+  }
+})
+
+// Tratamento global de erros
+app.setErrorHandler((error, request, reply) => {
+  app.log.error(error)
+  
+  // Erro de validação do Zod
+  if (error.validation) {
+    return reply.status(400).send({
+      statusCode: 400,
+      error: 'Bad Request',
+      message: 'Validation error',
+      details: error.validation
+    })
+  }
+  
+  // Erro de autenticação
+  if (error.statusCode === 401) {
+    return reply.status(401).send({
+      statusCode: 401,
+      error: 'Unauthorized',
+      message: error.message || 'Authentication required'
+    })
+  }
+  
+  // Erro de permissão
+  if (error.statusCode === 403) {
+    return reply.status(403).send({
+      statusCode: 403,
+      error: 'Forbidden',
+      message: error.message || 'Access denied'
+    })
+  }
+  
+  // Erro de recurso não encontrado
+  if (error.statusCode === 404) {
+    return reply.status(404).send({
+      statusCode: 404,
+      error: 'Not Found',
+      message: error.message || 'Resource not found'
+    })
+  }
+  
+  // Erro de conflito (ex: recurso duplicado)
+  if (error.statusCode === 409) {
+    return reply.status(409).send({
+      statusCode: 409,
+      error: 'Conflict',
+      message: error.message || 'Resource conflict'
+    })
+  }
+  
+  // Erro interno do servidor
+  return reply.status(500).send({
+    statusCode: 500,
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' 
+      ? 'An error occurred processing your request' 
+      : error.message
+  })
+})
+
+// Hook para logging de requisições
+app.addHook('onRequest', async (request, reply) => {
+  request.log.info({ url: request.url, method: request.method }, 'incoming request')
+})
+
+// Hook para logging de respostas
+app.addHook('onResponse', async (request, reply) => {
+  request.log.info({ 
+    url: request.url, 
+    method: request.method, 
+    statusCode: reply.statusCode,
+    responseTime: reply.getResponseTime()
+  }, 'request completed')
+})
 
 app.register(cors, {
   origin: true,
@@ -172,19 +253,86 @@ app.register(routes)
 
 const port = process.env.PORT || 3000
 
-app
-  .listen({
-    host: '0.0.0.0',
-    port: Number(port),
-  })
-  .then(() => {
+// Função para shutdown gracioso
+const gracefulShutdown = async (signal: string) => {
+  app.log.info(`${signal} signal received: closing HTTP server`)
+  try {
+    await app.close()
+    app.log.info('HTTP server closed')
+    process.exit(0)
+  } catch (err) {
+    app.log.error(err, 'Error during shutdown')
+    process.exit(1)
+  }
+}
+
+// Registrar handlers para sinais de término
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+
+// Tratamento de erros não capturados
+process.on('uncaughtException', (error) => {
+  app.log.fatal(error, 'Uncaught Exception')
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  app.log.fatal({ reason, promise }, 'Unhandled Rejection')
+  process.exit(1)
+})
+
+// Inicializar servidor
+const start = async () => {
+  try {
+    // Configurar serviço de banco de dados
+    databaseService.setApp(app)
+    
+    // Conectar ao banco de dados
+    try {
+      await databaseService.connect()
+    } catch (dbError) {
+      app.log.fatal(dbError, 'Não foi possível conectar ao banco de dados')
+      process.exit(1)
+    }
+    
+    // Adicionar health check route
+    app.get('/health', async (request, reply) => {
+      const dbHealth = await databaseService.healthCheck()
+      const isHealthy = dbHealth.status === 'healthy'
+      
+      return reply.status(isHealthy ? 200 : 503).send({
+        status: isHealthy ? 'ok' : 'degraded',
+        timestamp: new Date().toISOString(),
+        services: {
+          api: 'healthy',
+          database: dbHealth
+        }
+      })
+    })
+    
+    await app.listen({
+      host: '0.0.0.0',
+      port: Number(port),
+    })
+    
     console.log('🚀 ===================================')
     console.log(`🚀 HTTP Server running on http://localhost:${port}`)
     console.log(`📚 Swagger docs at http://localhost:${port}/docs`)
     console.log('🚀 ===================================')
 
-    // Inicializar serviços de background
-    console.log('⏰ Inicializando serviços automáticos...')
-    CronService.initialize()
-    console.log('✅ Serviços automáticos iniciados com sucesso!')
-  }) 
+    // Inicializar serviços de background com tratamento de erro
+    try {
+      console.log('⏰ Inicializando serviços automáticos...')
+      await CronService.initialize()
+      console.log('✅ Serviços automáticos iniciados com sucesso!')
+    } catch (cronError) {
+      app.log.error(cronError, 'Erro ao inicializar serviços automáticos')
+      // Continuar execução mesmo se os cron jobs falharem
+    }
+  } catch (err) {
+    app.log.error(err, 'Error starting server')
+    process.exit(1)
+  }
+}
+
+start() 
