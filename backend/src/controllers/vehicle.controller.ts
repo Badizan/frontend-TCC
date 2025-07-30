@@ -243,6 +243,10 @@ export class VehicleController extends BaseController {
       }
 
       const { id } = request.params as { id: string };
+      
+      // Validar ID
+      this.validateId(id, 'veículo');
+      
       console.log('🗑️ VehicleController: Deletando veículo:', id, 'para usuário:', request.user.id);
 
       // Verificar se o veículo pertence ao usuário antes de deletar
