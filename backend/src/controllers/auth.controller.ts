@@ -3,6 +3,7 @@ import { BaseController } from './base.controller'
 import { AuthService } from '../services/auth.service'
 import { z } from 'zod'
 import { PrismaClient } from '@prisma/client'
+import { AuthenticationError, NotFoundError, ValidationError } from '../middlewares/errorHandler'
 
 const prisma = new PrismaClient()
 const authService = new AuthService()
@@ -129,7 +130,7 @@ export class AuthController extends BaseController {
 
       if (!request.user) {
         console.error('❌ AuthController: Usuário não encontrado no request');
-        return reply.status(401).send({ message: 'User not authenticated' })
+        throw new AuthenticationError('User not authenticated');
       }
 
       const userId = request.user.id
@@ -149,7 +150,7 @@ export class AuthController extends BaseController {
 
         if (!user) {
           console.error('❌ AuthController: Usuário não encontrado no banco');
-          return reply.status(404).send({ message: 'User not found' })
+          throw new NotFoundError('User');
         }
 
         console.log('✅ AuthController: Perfil encontrado:', user.email);

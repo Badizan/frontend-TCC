@@ -19,6 +19,7 @@ import { useAppStore } from './store';
 import { useNotifications } from './hooks/useNotifications';
 import { useMileageNotifications } from './hooks/useMileageNotifications';
 import { api } from './services/api';
+import ErrorBoundary, { useErrorHandler } from './components/ErrorBoundary';
 
 const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -36,6 +37,7 @@ const App: React.FC = () => {
     } = useAppStore();
     
     const { showToast, checkImmediateNotifications } = useNotifications();
+    const { reportError } = useErrorHandler();
     
     // Hook para notificações de quilometragem
     useMileageNotifications();
@@ -134,6 +136,11 @@ const App: React.FC = () => {
             } catch (error) {
                 console.error('❌ App: Erro na inicialização:', error);
                 
+                // Reportar erro
+                if (error instanceof Error) {
+                    reportError(error, { context: 'app_initialization' });
+                }
+                
                 // Limpeza total em caso de erro
                 console.log('🧹 App: Erro na autenticação, limpando tudo...');
                 forceReset();
@@ -210,7 +217,7 @@ const App: React.FC = () => {
     }
 
     return (
-        <>
+        <ErrorBoundary>
             <Router key={forceRefresh}> {/* Key forçará re-render completo quando necessário */}
                 <Routes>
                     {/* Rotas públicas */}
@@ -219,31 +226,87 @@ const App: React.FC = () => {
                         element={
                             isAuthenticated && user ? 
                                 <Navigate to="/" replace /> : 
-                                <Login />
+                                <ErrorBoundary>
+                                    <Login />
+                                </ErrorBoundary>
                         } 
                     />
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route path="/forgot-password" element={
+                        <ErrorBoundary>
+                            <ForgotPassword />
+                        </ErrorBoundary>
+                    } />
+                    <Route path="/reset-password" element={
+                        <ErrorBoundary>
+                            <ResetPassword />
+                        </ErrorBoundary>
+                    } />
                     
                     {/* Rotas protegidas */}
                     {isAuthenticated && user ? (
-                        <Route element={<Layout />}>
-                            <Route path="/" element={<Dashboard />} />
-                            <Route path="/vehicles" element={<VehicleList />} />
-                            <Route path="/vehicles/:id" element={<VehicleDetail />} />
-                            <Route path="/vehicles/new" element={<VehicleNew />} />
-                            <Route path="/vehicles/:id/edit" element={<VehicleEdit />} />
-                            <Route path="/maintenance" element={<MaintenancePage />} />
-                            <Route path="/expenses" element={<ExpensesPage />} />
-                            <Route path="/reminders" element={<RemindersPage />} />
-                            <Route path="/reports" element={<ReportsPage />} />
-                            <Route path="/notifications" element={<NotificationsPage />} />
+                        <Route element={
+                            <ErrorBoundary>
+                                <Layout />
+                            </ErrorBoundary>
+                        }>
+                            <Route path="/" element={
+                                <ErrorBoundary>
+                                    <Dashboard />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/vehicles" element={
+                                <ErrorBoundary>
+                                    <VehicleList />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/vehicles/:id" element={
+                                <ErrorBoundary>
+                                    <VehicleDetail />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/vehicles/new" element={
+                                <ErrorBoundary>
+                                    <VehicleNew />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/vehicles/:id/edit" element={
+                                <ErrorBoundary>
+                                    <VehicleEdit />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/maintenance" element={
+                                <ErrorBoundary>
+                                    <MaintenancePage />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/expenses" element={
+                                <ErrorBoundary>
+                                    <ExpensesPage />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/reminders" element={
+                                <ErrorBoundary>
+                                    <RemindersPage />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/reports" element={
+                                <ErrorBoundary>
+                                    <ReportsPage />
+                                </ErrorBoundary>
+                            } />
+                            <Route path="/notifications" element={
+                                <ErrorBoundary>
+                                    <NotificationsPage />
+                                </ErrorBoundary>
+                            } />
                         </Route>
                     ) : (
                         // Redirecionar apenas se não estiver já na página de login
                         <Route path="*" element={
                             window.location.pathname === '/login' ? 
-                                <Login /> : 
+                                <ErrorBoundary>
+                                    <Login />
+                                </ErrorBoundary> : 
                                 <Navigate to="/login" replace />
                         } />
                     )}
@@ -286,10 +349,10 @@ const App: React.FC = () => {
                             secondary: '#EF4444',
                         },
                     },
-                }}
-            />
-        </>
-    );
+                                    }}
+                />
+        </ErrorBoundary>
+        );
 };
 
 export { App };
