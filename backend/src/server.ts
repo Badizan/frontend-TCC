@@ -4,11 +4,28 @@ import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import { routes } from './routes'
 import { CronService } from './services/cronService'
+import { errorHandler, setupGlobalErrorHandlers, validateRequiredEnvVars } from './middlewares/errorHandler'
 import dotenv from 'dotenv'
+
+// Configurar tratamento global de erros antes de qualquer coisa
+setupGlobalErrorHandlers()
 
 dotenv.config()
 
-const app = fastify()
+// Validar variáveis de ambiente obrigatórias
+try {
+  validateRequiredEnvVars([
+    'JWT_SECRET',
+    'DATABASE_URL'
+  ])
+} catch (error) {
+  console.error('❌ Falha na validação de variáveis de ambiente:', error)
+  process.exit(1)
+}
+
+const app = fastify({
+  logger: false, // Desabilitar logger padrão pois temos nosso próprio sistema
+})
 
 app.register(cors, {
   origin: true,
@@ -168,23 +185,42 @@ app.register(swaggerUI, {
   }
 })
 
+// Registrar middleware de tratamento de erros
+app.setErrorHandler(errorHandler)
+
 app.register(routes)
 
 const port = process.env.PORT || 3000
 
-app
-  .listen({
-    host: '0.0.0.0',
-    port: Number(port),
-  })
-  .then(() => {
+// Função para inicialização com tratamento de erros
+const startServer = async () => {
+  try {
+    console.log('🚀 Iniciando servidor...')
+    
+    await app.listen({
+      host: '0.0.0.0',
+      port: Number(port),
+    })
+    
     console.log('🚀 ===================================')
     console.log(`🚀 HTTP Server running on http://localhost:${port}`)
     console.log(`📚 Swagger docs at http://localhost:${port}/docs`)
     console.log('🚀 ===================================')
 
-    // Inicializar serviços de background
-    console.log('⏰ Inicializando serviços automáticos...')
-    CronService.initialize()
-    console.log('✅ Serviços automáticos iniciados com sucesso!')
-  }) 
+    // Inicializar serviços de background com tratamento de erro
+    try {
+      console.log('⏰ Inicializando serviços automáticos...')
+      CronService.initialize()
+      console.log('✅ Serviços automáticos iniciados com sucesso!')
+    } catch (cronError) {
+      console.error('⚠️ Erro ao inicializar serviços automáticos:', cronError)
+      console.warn('⚠️ Servidor continuará funcionando sem serviços automáticos')
+    }
+  } catch (error) {
+    console.error('❌ Falha ao iniciar servidor:', error)
+    process.exit(1)
+  }
+}
+
+// Iniciar servidor
+startServer() 

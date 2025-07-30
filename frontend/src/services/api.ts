@@ -21,6 +21,56 @@ export class ApiService {
         this.setupInterceptors();
     }
 
+    private getErrorMessage(error: AxiosError): string {
+        // Mensagens personalizadas baseadas no status HTTP
+        if (error.response?.status) {
+            const status = error.response.status;
+            const data = error.response.data as any;
+
+            switch (status) {
+                case 400:
+                    return data?.error?.message || data?.message || 'Dados inválidos';
+                case 401:
+                    return 'Sua sessão expirou. Faça login novamente.';
+                case 403:
+                    return 'Você não tem permissão para realizar esta ação';
+                case 404:
+                    return 'Recurso não encontrado';
+                case 409:
+                    return data?.error?.message || data?.message || 'Conflito de dados';
+                case 422:
+                    return data?.error?.message || data?.message || 'Dados de entrada inválidos';
+                case 429:
+                    return 'Muitas tentativas. Tente novamente mais tarde.';
+                case 500:
+                    return 'Erro interno do servidor. Tente novamente.';
+                case 502:
+                    return 'Serviço temporariamente indisponível';
+                case 503:
+                    return 'Serviço em manutenção. Tente novamente mais tarde.';
+                case 504:
+                    return 'Timeout do servidor. Tente novamente.';
+                default:
+                    return data?.error?.message || data?.message || `Erro HTTP ${status}`;
+            }
+        }
+
+        // Mensagens para erros de rede
+        if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
+            return 'Problema de conexão. Verifique sua internet e tente novamente.';
+        }
+
+        if (error.code === 'ENOTFOUND') {
+            return 'Não foi possível conectar ao servidor.';
+        }
+
+        if (error.code === 'TIMEOUT') {
+            return 'Timeout de conexão. Tente novamente.';
+        }
+
+        return error.message || 'Erro desconhecido';
+    }
+
     private setupInterceptors(): void {
         // Request interceptor para adicionar token
         this.api.interceptors.request.use(
@@ -55,14 +105,49 @@ export class ApiService {
                 return response;
             },
             (error: AxiosError) => {
-                console.error('❌ API Error:', error.response?.status, error.config?.url, error.response?.data);
+                const errorData = {
+                    timestamp: new Date().toISOString(),
+                    status: error.response?.status,
+                    url: error.config?.url,
+                    method: error.config?.method?.toUpperCase(),
+                    data: error.response?.data,
+                    message: error.message,
+                    userId: this.currentUserId
+                };
 
-                if (error.response?.status === 401 && !this.preventRedirect) {
-                    console.log('🚪 Token inválido, limpando autenticação');
-                    this.clearAllCache();
+                console.error('❌ API Error:', errorData);
+
+                // Log estruturado para diferentes tipos de erro
+                if (error.response?.status === 401) {
+                    console.warn('🔒 AUTHENTICATION ERROR:', errorData);
+                    if (!this.preventRedirect) {
+                        console.log('🚪 Token inválido, limpando autenticação');
+                        this.clearAllCache();
+                    }
+                } else if (error.response?.status === 403) {
+                    console.warn('🚫 AUTHORIZATION ERROR:', errorData);
+                } else if (error.response?.status === 404) {
+                    console.warn('🔍 NOT FOUND ERROR:', errorData);
+                } else if (error.response?.status === 409) {
+                    console.warn('⚠️ CONFLICT ERROR:', errorData);
+                } else if (error.response?.status === 422) {
+                    console.warn('📝 VALIDATION ERROR:', errorData);
+                } else if (error.response?.status && error.response.status >= 500) {
+                    console.error('🚨 SERVER ERROR:', errorData);
+                } else if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
+                    console.error('🌐 NETWORK ERROR:', errorData);
+                } else if (error.code === 'ENOTFOUND') {
+                    console.error('🌐 DNS ERROR:', errorData);
+                } else if (error.code === 'TIMEOUT') {
+                    console.error('⏱️ TIMEOUT ERROR:', errorData);
                 }
 
-                return Promise.reject(error);
+                // Criar erro customizado com mais informações
+                const customError = new Error(this.getErrorMessage(error));
+                (customError as any).originalError = error;
+                (customError as any).errorData = errorData;
+
+                return Promise.reject(customError);
             }
         );
     }
@@ -130,6 +215,60 @@ export class ApiService {
 
         this.setupInterceptors();
         console.log('✅ ApiService: Cache completamente limpo');
+    }
+
+    // Função para retry automático de requisições com falha
+    private async retryRequest<T>(
+        requestFn: () => Promise<T>, 
+        maxRetries: number = 3, 
+        delay: number = 1000
+    ): Promise<T> {
+        let lastError: Error;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await requestFn();
+            } catch (error: any) {
+                lastError = error;
+                
+                // Não retry para erros 4xx (exceto 408 e 429)
+                if (error.originalError?.response?.status) {
+                    const status = error.originalError.response.status;
+                    if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+                        throw error;
+                    }
+                }
+                
+                console.warn(`⚠️ API Retry ${attempt}/${maxRetries}:`, error.message);
+                
+                if (attempt < maxRetries) {
+                    // Exponential backoff
+                    await this.sleep(delay * Math.pow(2, attempt - 1));
+                }
+            }
+        }
+        
+        throw lastError!;
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Método auxiliar para requisições com retry automático
+    private async makeRequestWithRetry<T>(
+        requestFn: () => Promise<AxiosResponse<T>>,
+        options: { retry?: boolean; maxRetries?: number } = {}
+    ): Promise<T> {
+        const { retry = true, maxRetries = 3 } = options;
+        
+        if (retry) {
+            const response = await this.retryRequest(() => requestFn(), maxRetries);
+            return response.data;
+        } else {
+            const response = await requestFn();
+            return response.data;
+        }
     }
 
     getToken(): string | null {

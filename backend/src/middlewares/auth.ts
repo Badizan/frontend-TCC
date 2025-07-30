@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 import { UserRole } from '../types'
+import { AuthenticationError, AuthorizationError } from './errorHandler'
 
 const prisma = new PrismaClient()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
@@ -54,7 +55,7 @@ export async function authMiddleware(
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     console.warn('⚠️ AUTH: Token não fornecido ou formato inválido');
-    return reply.status(401).send({ message: 'Token não fornecido ou inválido' });
+    throw new AuthenticationError('Token não fornecido ou inválido');
   }
 
   const token = authHeader.substring(7);
@@ -63,7 +64,7 @@ export async function authMiddleware(
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       console.error('❌ AUTH: JWT_SECRET não configurado');
-      return reply.status(500).send({ message: 'Erro de configuração do servidor' });
+      throw new Error('Erro de configuração do servidor');
     }
 
     const payload = jwt.verify(token, jwtSecret) as JWTPayload;
@@ -71,7 +72,7 @@ export async function authMiddleware(
     // Verificações extras de segurança
     if (!payload.id || !payload.email) {
       console.warn('🚨 AUTH: Token válido mas payload incompleto:', { id: payload.id, email: payload.email });
-      return reply.status(401).send({ message: 'Token inválido: dados do usuário incompletos' });
+      throw new AuthenticationError('Token inválido: dados do usuário incompletos');
     }
 
     // Anexar usuário à request
@@ -99,7 +100,7 @@ export async function authMiddleware(
       errorType: error.name
     });
 
-    return reply.status(401).send({ message: 'Token inválido ou expirado' });
+    throw new AuthenticationError('Token inválido ou expirado');
   }
 }
 
@@ -107,17 +108,11 @@ export async function authMiddleware(
 export function requireRole(...roles: string[]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.user) {
-      return reply.status(401).send({
-        success: false,
-        message: 'Usuário não autenticado'
-      })
+      throw new AuthenticationError('Usuário não autenticado');
     }
 
     if (!roles.includes(request.user.role)) {
-      return reply.status(403).send({
-        success: false,
-        message: `Acesso negado. Roles necessárias: ${roles.join(', ')}`
-      })
+      throw new AuthorizationError(`Acesso negado. Roles necessárias: ${roles.join(', ')}`);
     }
   }
 }
@@ -130,8 +125,7 @@ export function requireOwnerOrAdmin(request: FastifyRequest, reply: FastifyReply
   const { user } = request
 
   if (!user) {
-    reply.status(401).send({ error: 'Usuário não autenticado' })
-    return
+    throw new AuthenticationError('Usuário não autenticado');
   }
 
   // Extrair ID do usuário dos parâmetros da rota
@@ -144,8 +138,7 @@ export function requireOwnerOrAdmin(request: FastifyRequest, reply: FastifyReply
   const isAdmin = request.user.role === 'ADMIN'
 
   if (!isOwner && !isAdmin) {
-    reply.status(403).send({ error: 'Access denied. Must be the owner or admin.' })
-    return
+    throw new AuthorizationError('Acesso negado. Deve ser o proprietário ou admin.');
   }
 }
 
@@ -155,7 +148,7 @@ export function createOwnershipMiddleware(resourceType: 'vehicle' | 'expense' | 
     const user = request.user;
     if (!user) {
       console.error('❌ OWNERSHIP: Middleware chamado sem usuário autenticado');
-      return reply.status(401).send({ message: 'Usuário não autenticado' });
+      throw new AuthenticationError('Usuário não autenticado');
     }
 
     const { id } = request.params as { id: string };
